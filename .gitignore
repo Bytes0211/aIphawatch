@@ -1,0 +1,89 @@
+# ============================
+# AIphaWatch .gitignore
+# ============================
+
+# --- Agent guidance ---
+AGENTS.md
+
+# --- GitHub issues / templates ---
+github/
+
+# --- Developer files ---
+developer/
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+*.whl
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+
+# Python tools
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+coverage.xml
+
+# --- Node / React ---
+node_modules/
+.next/
+out/
+build/
+*.tsbuildinfo
+
+# --- Environment & secrets ---
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# --- Terraform ---
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+crash.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraform.lock.hcl
+
+# --- AWS ---
+.aws/
+
+# --- IDE / editors ---
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# --- Docker ---
+docker-compose.override.yml
+
+# --- Celery ---
+celerybeat-schedule
+celerybeat.pid
+
+# --- Logs ---
+*.log
+logs/
+
+# --- OS ---
+Thumbs.db
