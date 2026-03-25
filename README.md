@@ -1,5 +1,17 @@
 # AIphaWatch
 
+![Phase 1](https://img.shields.io/badge/phase-1%20MVP-blue?style=flat-square)
+![Status](https://img.shields.io/badge/status-in%20progress-yellow?style=flat-square)
+![Python](https://img.shields.io/badge/python-3.12%2B-3776AB?style=flat-square&logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.100%2B-009688?style=flat-square&logo=fastapi&logoColor=white)
+![React](https://img.shields.io/badge/React-18-61DAFB?style=flat-square&logo=react&logoColor=black)
+![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?style=flat-square&logo=typescript&logoColor=white)
+![AWS Bedrock](https://img.shields.io/badge/AWS-Bedrock-FF9900?style=flat-square&logo=amazonaws&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16%20+%20pgvector-4169E1?style=flat-square&logo=postgresql&logoColor=white)
+![Terraform](https://img.shields.io/badge/IaC-Terraform-7B42BC?style=flat-square&logo=terraform&logoColor=white)
+[![CI](https://img.shields.io/github/actions/workflow/status/Bytes0211/aIphawatch/ci.yml?branch=main&style=flat-square&label=CI&logo=githubactions&logoColor=white)](https://github.com/Bytes0211/aIphawatch/actions)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green?style=flat-square)](LICENSE)
+
 AI-powered equity intelligence for buy-side analysts.
 
 AIphaWatch is a multi-tenant SaaS platform that ingests SEC EDGAR filings, financial data, and news to generate structured AI analyst briefs and power a conversational RAG chat interface — reducing company research from hours to minutes.
