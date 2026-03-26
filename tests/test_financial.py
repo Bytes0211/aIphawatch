@@ -71,6 +71,13 @@ class TestSafeInt:
     def test_invalid_returns_none(self):
         assert _safe_int("abc") is None
 
+    def test_float_string(self):
+        """Alpha Vantage can return MarketCap as '285000000000.0'."""
+        assert _safe_int("285000000000.0") == 285000000000
+
+    def test_float_string_with_decimals(self):
+        assert _safe_int("42.7") == 42
+
 
 # ---------------------------------------------------------------------------
 # Data classes

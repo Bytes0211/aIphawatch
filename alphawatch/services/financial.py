@@ -87,7 +87,7 @@ def _safe_int(value: Any) -> int | None:
     if value is None or value == "None" or value == "-":
         return None
     try:
-        return int(str(value).replace(",", ""))
+        return int(float(str(value).replace(",", "")))
     except (ValueError, TypeError):
         return None
 
@@ -176,8 +176,8 @@ class AlphaVantageClient:
     async def fetch_snapshot(self, ticker: str) -> dict[str, Any]:
         """Fetch a complete financial snapshot combining quote + overview.
 
-        Merges data from GLOBAL_QUOTE and OVERVIEW into a single dict
-        suitable for creating a FinancialSnapshot record.
+        Issues GLOBAL_QUOTE and OVERVIEW requests concurrently via
+        ``asyncio.gather`` to halve wall-clock latency.
 
         Args:
             ticker: Stock ticker symbol.
@@ -185,8 +185,12 @@ class AlphaVantageClient:
         Returns:
             Dict with all snapshot fields ready for repository upsert.
         """
-        quote = await self.get_quote(ticker)
-        overview = await self.get_overview(ticker)
+        import asyncio
+
+        quote, overview = await asyncio.gather(
+            self.get_quote(ticker),
+            self.get_overview(ticker),
+        )
 
         return {
             "snapshot_date": quote.latest_trading_day or date.today(),
@@ -224,6 +228,8 @@ class AlphaVantageClient:
         if "Error Message" in data:
             raise ValueError(f"Alpha Vantage error: {data['Error Message']}")
         if "Note" in data:
-            logger.warning("Alpha Vantage rate limit note: %s", data["Note"])
+            raise ValueError(f"Alpha Vantage rate limit reached: {data['Note']}")
+        if "Information" in data:
+            raise ValueError(f"Alpha Vantage plan restriction: {data['Information']}")
 
         return data
