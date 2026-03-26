@@ -3,6 +3,7 @@
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from alphawatch.api.dependencies import get_current_user, get_db
@@ -79,14 +80,14 @@ async def add_to_watchlist(
         )
 
     watchlist_repo = WatchlistRepository(db)
-    existing = await watchlist_repo.get_entry(user.user_id, company.id)
-    if existing:
+    try:
+        entry = await watchlist_repo.add(user.user_id, company.id)
+    except IntegrityError:
         raise HTTPException(
             status_code=409,
             detail=f"{company.ticker} is already on your watchlist",
         )
 
-    entry = await watchlist_repo.add(user.user_id, company.id)
     return WatchlistEntryResponse(
         id=entry.id,
         company=CompanyResponse.model_validate(company),
