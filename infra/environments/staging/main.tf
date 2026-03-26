@@ -27,11 +27,12 @@ module "secrets" {
 module "vpc" {
   source = "../../modules/vpc"
 
-  project     = var.project
-  environment = var.environment
-  vpc_cidr    = var.vpc_cidr
-  az_count    = 2
-  tags        = local.tags
+  project            = var.project
+  environment        = var.environment
+  vpc_cidr           = var.vpc_cidr
+  az_count           = 2
+  single_nat_gateway = true
+  tags               = local.tags
 }
 
 # -----------------------------------------------------------------------------
@@ -87,16 +88,37 @@ module "rds" {
 }
 
 # -----------------------------------------------------------------------------
-# Cache / Broker
+# Broker Redis (Celery)
 # -----------------------------------------------------------------------------
-module "elasticache" {
+module "elasticache_broker" {
   source = "../../modules/elasticache"
 
   project            = var.project
   environment        = var.environment
+  purpose            = "broker"
   private_subnet_ids = module.vpc.private_subnet_ids
   security_group_id  = module.vpc.redis_security_group_id
   node_type          = var.redis_node_type
+  maxmemory_policy   = "noeviction"
+  auth_token         = module.secrets.redis_auth_token
+  num_cache_clusters = 1
+  tags               = local.tags
+}
+
+# -----------------------------------------------------------------------------
+# Cache Redis (sessions / chunk cache)
+# -----------------------------------------------------------------------------
+module "elasticache_cache" {
+  source = "../../modules/elasticache"
+
+  project            = var.project
+  environment        = var.environment
+  purpose            = "cache"
+  private_subnet_ids = module.vpc.private_subnet_ids
+  security_group_id  = module.vpc.redis_security_group_id
+  node_type          = var.redis_node_type
+  maxmemory_policy   = "allkeys-lru"
+  auth_token         = module.secrets.redis_auth_token
   num_cache_clusters = 1
   tags               = local.tags
 }
@@ -148,8 +170,11 @@ module "ecs" {
   db_password_secret_arn = module.secrets.db_password_secret_arn
 
   # Redis connection
-  redis_host = module.elasticache.primary_endpoint
-  redis_port = module.elasticache.port
+  redis_broker_host = module.elasticache_broker.primary_endpoint
+  redis_broker_port = module.elasticache_broker.port
+  redis_cache_host  = module.elasticache_cache.primary_endpoint
+  redis_cache_port  = module.elasticache_cache.port
+  redis_password_secret_arn = module.secrets.redis_auth_token_secret_arn
 
   # Auth
   cognito_user_pool_id = module.cognito.user_pool_id
@@ -186,7 +211,11 @@ output "rds_endpoint" {
 }
 
 output "redis_endpoint" {
-  value = module.elasticache.primary_endpoint
+  value = module.elasticache_broker.primary_endpoint
+}
+
+output "redis_cache_endpoint" {
+  value = module.elasticache_cache.primary_endpoint
 }
 
 output "cognito_user_pool_id" {

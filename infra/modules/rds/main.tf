@@ -24,7 +24,7 @@ resource "aws_db_parameter_group" "postgres16" {
 
   parameter {
     name  = "log_statement"
-    value = "all"
+    value = var.environment == "production" ? "ddl" : "all"
   }
 
   tags = merge(var.tags, {

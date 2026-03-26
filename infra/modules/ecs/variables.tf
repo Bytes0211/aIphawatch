@@ -129,13 +129,29 @@ variable "db_password_secret_arn" {
   type        = string
 }
 
-variable "redis_host" {
-  description = "Redis primary endpoint."
+variable "redis_password_secret_arn" {
+  description = "ARN of the Secrets Manager secret for the Redis auth token."
   type        = string
 }
 
-variable "redis_port" {
-  description = "Redis port."
+variable "redis_broker_host" {
+  description = "Redis endpoint for the Celery broker."
+  type        = string
+}
+
+variable "redis_broker_port" {
+  description = "Redis port for the Celery broker."
+  type        = number
+  default     = 6379
+}
+
+variable "redis_cache_host" {
+  description = "Redis endpoint for cache workloads."
+  type        = string
+}
+
+variable "redis_cache_port" {
+  description = "Redis port for cache workloads."
   type        = number
   default     = 6379
 }

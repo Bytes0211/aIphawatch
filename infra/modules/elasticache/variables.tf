@@ -24,6 +24,22 @@ variable "node_type" {
   default     = "cache.t3.micro"
 }
 
+variable "purpose" {
+  description = "Identifies the primary workload (broker or cache)."
+  type        = string
+}
+
+variable "maxmemory_policy" {
+  description = "maxmemory-policy applied to the parameter group."
+  type        = string
+}
+
+variable "auth_token" {
+  description = "Redis AUTH token for the replication group."
+  type        = string
+  sensitive   = true
+}
+
 variable "num_cache_clusters" {
   description = "Number of cache clusters (nodes) in the replication group."
   type        = number

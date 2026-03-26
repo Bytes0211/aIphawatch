@@ -20,6 +20,12 @@ variable "az_count" {
   default     = 2
 }
 
+variable "single_nat_gateway" {
+  description = "When true, deploy a single shared NAT Gateway; when false, deploy one per AZ."
+  type        = bool
+  default     = true
+}
+
 variable "api_container_port" {
   description = "Port the API container listens on."
   type        = number

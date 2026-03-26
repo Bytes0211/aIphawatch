@@ -276,8 +276,10 @@ resource "aws_ecs_task_definition" "api" {
       { name = "DB_HOST", value = var.db_host },
       { name = "DB_PORT", value = tostring(var.db_port) },
       { name = "DB_NAME", value = var.db_name },
-      { name = "REDIS_HOST", value = var.redis_host },
-      { name = "REDIS_PORT", value = tostring(var.redis_port) },
+      { name = "REDIS_BROKER_HOST", value = var.redis_broker_host },
+      { name = "REDIS_BROKER_PORT", value = tostring(var.redis_broker_port) },
+      { name = "REDIS_CACHE_HOST", value = var.redis_cache_host },
+      { name = "REDIS_CACHE_PORT", value = tostring(var.redis_cache_port) },
       { name = "COGNITO_USER_POOL_ID", value = var.cognito_user_pool_id },
       { name = "COGNITO_CLIENT_ID", value = var.cognito_client_id },
     ]
@@ -286,6 +288,10 @@ resource "aws_ecs_task_definition" "api" {
       {
         name      = "DB_PASSWORD"
         valueFrom = var.db_password_secret_arn
+      },
+      {
+        name      = "REDIS_PASSWORD"
+        valueFrom = var.redis_password_secret_arn
       }
     ]
 
@@ -325,14 +331,20 @@ resource "aws_ecs_task_definition" "worker" {
       { name = "DB_HOST", value = var.db_host },
       { name = "DB_PORT", value = tostring(var.db_port) },
       { name = "DB_NAME", value = var.db_name },
-      { name = "REDIS_HOST", value = var.redis_host },
-      { name = "REDIS_PORT", value = tostring(var.redis_port) },
+      { name = "REDIS_BROKER_HOST", value = var.redis_broker_host },
+      { name = "REDIS_BROKER_PORT", value = tostring(var.redis_broker_port) },
+      { name = "REDIS_CACHE_HOST", value = var.redis_cache_host },
+      { name = "REDIS_CACHE_PORT", value = tostring(var.redis_cache_port) },
     ]
 
     secrets = [
       {
         name      = "DB_PASSWORD"
         valueFrom = var.db_password_secret_arn
+      },
+      {
+        name      = "REDIS_PASSWORD"
+        valueFrom = var.redis_password_secret_arn
       }
     ]
 

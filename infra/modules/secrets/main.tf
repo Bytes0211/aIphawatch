@@ -27,6 +27,28 @@ resource "aws_secretsmanager_secret_version" "db_password" {
 }
 
 # -----------------------------------------------------------------------------
+# Redis Auth Token (auto-generated)
+# -----------------------------------------------------------------------------
+resource "random_password" "redis" {
+  length  = 32
+  special = false
+}
+
+resource "aws_secretsmanager_secret" "redis_auth_token" {
+  name        = "${var.project}/${var.environment}/redis-auth-token"
+  description = "Redis AUTH token for ${var.project} ${var.environment}"
+
+  tags = merge(var.tags, {
+    Name = "${var.project}-${var.environment}-redis-auth-token"
+  })
+}
+
+resource "aws_secretsmanager_secret_version" "redis_auth_token" {
+  secret_id     = aws_secretsmanager_secret.redis_auth_token.id
+  secret_string = random_password.redis.result
+}
+
+# -----------------------------------------------------------------------------
 # API Keys (placeholder secrets — values set manually or via CI)
 # -----------------------------------------------------------------------------
 resource "aws_secretsmanager_secret" "alpha_vantage_key" {

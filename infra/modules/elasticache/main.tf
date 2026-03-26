@@ -13,22 +13,22 @@ resource "aws_elasticache_subnet_group" "main" {
 }
 
 resource "aws_elasticache_parameter_group" "redis7" {
-  name   = "${var.project}-${var.environment}-redis7"
+  name   = "${var.project}-${var.environment}-${var.purpose}-redis7"
   family = "redis7"
 
   parameter {
     name  = "maxmemory-policy"
-    value = "allkeys-lru"
+    value = var.maxmemory_policy
   }
 
   tags = merge(var.tags, {
-    Name = "${var.project}-${var.environment}-redis7-params"
+    Name = "${var.project}-${var.environment}-${var.purpose}-redis7-params"
   })
 }
 
 resource "aws_elasticache_replication_group" "main" {
-  replication_group_id = "${var.project}-${var.environment}-redis"
-  description          = "${var.project} ${var.environment} Redis cluster"
+  replication_group_id = "${var.project}-${var.environment}-${var.purpose}-redis"
+  description          = "${var.project} ${var.environment} ${var.purpose} Redis cluster"
 
   engine               = "redis"
   engine_version       = "7.1"
@@ -41,6 +41,7 @@ resource "aws_elasticache_replication_group" "main" {
 
   at_rest_encryption_enabled = true
   transit_encryption_enabled = true
+  auth_token                 = var.auth_token
   automatic_failover_enabled = var.num_cache_clusters > 1
 
   snapshot_retention_limit = var.environment == "production" ? 7 : 0
@@ -48,6 +49,6 @@ resource "aws_elasticache_replication_group" "main" {
   maintenance_window       = "sun:04:00-sun:05:00"
 
   tags = merge(var.tags, {
-    Name = "${var.project}-${var.environment}-redis"
+    Name = "${var.project}-${var.environment}-${var.purpose}-redis"
   })
 }
