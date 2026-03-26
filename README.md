@@ -58,6 +58,10 @@ uv sync
 
 # Run the API server
 uv run uvicorn alphawatch.api.main:app --reload
+
+# Verify health endpoint
+curl http://localhost:8000/health
+# {"status": "ok"}
 ```
 
 ### Frontend

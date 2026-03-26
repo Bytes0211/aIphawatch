@@ -1,10 +1,10 @@
 # AIphaWatch — Project Status
 
 **Version:** 1.0  
-**Last Updated:** 2026-03-25  
-**Lifecycle:** Phase 1 (MVP) underway — infrastructure provisioned  
-**Overall Status:** ✅ Phase 0 complete; 🔧 Phase 1 MVP in progress (Step 1 of 14 complete)  
-**Deliverables Completed:** Product requirements document; full technical specification; LangGraph workflow designs (IngestionGraph, BriefGraph, ChatGraph, SentimentGraph); PostgreSQL schema with pgvector and RLS; FastAPI API contracts; React component tree; Celery job definitions; Terraform module layout; CI/CD pipeline spec; **Terraform infrastructure — 8 modules + staging/production environments**
+**Last Updated:** 2026-03-26  
+**Lifecycle:** Phase 1 (MVP) underway — API skeleton running  
+**Overall Status:** ✅ Phase 0 complete; 🔧 Phase 1 MVP in progress (Steps 1, 3 of 14 complete)  
+**Deliverables Completed:** Product requirements document; full technical specification; LangGraph workflow designs (IngestionGraph, BriefGraph, ChatGraph, SentimentGraph); PostgreSQL schema with pgvector and RLS; FastAPI API contracts; React component tree; Celery job definitions; Terraform module layout; CI/CD pipeline spec; **Terraform infrastructure — 8 modules + staging/production environments**; **FastAPI skeleton — auth middleware, tenant context, health endpoint**
 
 ---
 
@@ -20,7 +20,7 @@ The platform reduces per-company research time from hours to minutes, delivers c
 
 1. ~~**Terraform infrastructure scaffolding** — VPC, RDS, ElastiCache, Cognito, ECS, S3, CloudFront, Secrets Manager~~ ✅ Complete
 2. **Database schema deployment** — all 12 tables, HNSW vector index, RLS policies ← **next**
-3. **FastAPI skeleton** — Cognito JWT middleware, tenant context injection, health endpoint
+3. ~~**FastAPI skeleton** — Cognito JWT middleware, tenant context injection, health endpoint~~ ✅ Complete
 
 ---
 
@@ -29,7 +29,7 @@ The platform reduces per-company research time from hours to minutes, delivers c
 | Phase | Scope | Status | Notes |
 |-------|-------|--------|-------|
 | Phase 0 — Planning & Alignment | PRD, technical specification, architectural direction | ✅ Complete | All planning documents authored; 14-step Phase 1 build order defined |
-| Phase 1 — MVP | Auth, watchlist, EDGAR ingestion, financial API, news, analyst briefs, chat, dashboard, infra | 🔧 In Progress | Step 1 (Terraform) complete; database schema is next |
+| Phase 1 — MVP | Auth, watchlist, EDGAR ingestion, financial API, news, analyst briefs, chat, dashboard, infra | 🔧 In Progress | Steps 1 + 3 complete; database schema is next |
 | Phase 2 — Intelligence Expansion | Full news depth, sentiment enrichment, risk flag detection, document upload, competitor lookup | ⏳ Planned | — |
 | Phase 3 — SaaS Hardening | Tenant branding, alert notifications, admin panel, bulk import, brief export, usage tracking | ⏳ Planned | — |
 | Phase 4 — Scale & Polish | Earnings transcripts, watchlist sharing, scheduled briefs, comparison views, audit log, API access | ⏳ Planned | — |
@@ -42,7 +42,7 @@ The platform reduces per-company research time from hours to minutes, delivers c
 
 - [x] Step 1: Terraform — VPC, RDS, Redis, Cognito, ECS, S3, CloudFront, Secrets (8 modules + staging/production)
 - [ ] Step 2: Database schema — all tables, HNSW index, RLS policies
-- [ ] Step 3: FastAPI skeleton — JWT middleware, tenant context, `/healthz`
+- [x] Step 3: FastAPI skeleton — Cognito JWT auth, TenantMiddleware, tenant-scoped DB sessions, health endpoint
 - [ ] Step 4: Company resolution + Watchlist CRUD endpoints
 - [ ] Step 5: EDGAR ingestion service + `IngestionGraph`
 - [ ] Step 6: Financial API ingestion + `FinancialSnapshot` storage
