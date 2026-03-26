@@ -84,6 +84,11 @@ class Settings(BaseSettings):
     bedrock_embeddings_model_id: str = "amazon.titan-embed-text-v2:0"
     bedrock_embeddings_dimension: int = 1536
 
+    # Alpha Vantage
+    alpha_vantage_api_key: str = ""
+    alpha_vantage_base_url: str = "https://www.alphavantage.co/query"
+    alpha_vantage_daily_limit: int = 25  # free-tier limit
+
     # Chunking
     chunk_size_tokens: int = 512
     chunk_overlap_tokens: int = 64
