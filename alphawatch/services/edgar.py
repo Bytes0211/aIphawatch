@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+import time
 from typing import Any
 
 import httpx
@@ -43,6 +44,7 @@ class EdgarClient:
         self._base_url = base_url or settings.edgar_base_url
         self._rate_limit = rate_limit or settings.edgar_rate_limit
         self._semaphore = asyncio.Semaphore(int(self._rate_limit))
+        self._min_interval = 1.0 / self._rate_limit  # seconds between requests
         self._client = httpx.AsyncClient(
             headers={"User-Agent": self._user_agent},
             timeout=60.0,
@@ -90,12 +92,16 @@ class EdgarClient:
             params["ciks"] = cik
 
         async with self._semaphore:
+            start = time.monotonic()
             resp = await self._client.get(
                 f"{self._base_url}/search-index",
                 params=params,
             )
             resp.raise_for_status()
             data = resp.json()
+            # Enforce per-second rate limit (not just concurrency)
+            elapsed = time.monotonic() - start
+            await asyncio.sleep(max(0.0, self._min_interval - elapsed))
 
         filings: list[FilingRef] = []
         for hit in data.get("hits", {}).get("hits", []):
@@ -104,7 +110,7 @@ class EdgarClient:
             if filing_type not in FILING_TYPE_MAP:
                 continue
 
-            accession = source.get("file_num", source.get("accession_no", ""))
+            accession = source.get("accession_no", source.get("file_num", ""))
             filings.append(
                 FilingRef(
                     accession_number=accession,
@@ -133,8 +139,12 @@ class EdgarClient:
             The raw text content of the filing.
         """
         async with self._semaphore:
+            start = time.monotonic()
             resp = await self._client.get(url)
             resp.raise_for_status()
+            # Enforce per-second rate limit
+            elapsed = time.monotonic() - start
+            await asyncio.sleep(max(0.0, self._min_interval - elapsed))
             return resp.text
 
     @staticmethod
@@ -146,8 +156,15 @@ class EdgarClient:
 
         Returns:
             Full URL to the filing document.
+
+        Raises:
+            ValueError: If file_name is missing or empty.
         """
         file_name = source.get("file_name", "")
+        if not file_name:
+            raise ValueError(
+                f"Missing file_name in EDGAR source: {source.get('accession_no')}"
+            )
         if file_name.startswith("http"):
             return file_name
         return f"https://www.sec.gov/Archives/edgar/data/{file_name}"

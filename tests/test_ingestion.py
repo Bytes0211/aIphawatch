@@ -161,6 +161,26 @@ class TestEdgarFilingTypeMap:
             EdgarClient.map_filing_type("13-F")
 
 
+class TestEdgarBuildFilingUrl:
+    """Test EDGAR URL building and guards."""
+
+    def test_empty_file_name_raises(self):
+        with pytest.raises(ValueError, match="Missing file_name"):
+            EdgarClient._build_filing_url({"accession_no": "0001"})
+
+    def test_missing_file_name_raises(self):
+        with pytest.raises(ValueError, match="Missing file_name"):
+            EdgarClient._build_filing_url({})
+
+    def test_http_url_returned_as_is(self):
+        url = EdgarClient._build_filing_url({"file_name": "https://example.com/filing"})
+        assert url == "https://example.com/filing"
+
+    def test_relative_file_name_builds_sec_url(self):
+        url = EdgarClient._build_filing_url({"file_name": "123/0001.txt"})
+        assert url == "https://www.sec.gov/Archives/edgar/data/123/0001.txt"
+
+
 # ---------------------------------------------------------------------------
 # IngestionGraph structure
 # ---------------------------------------------------------------------------

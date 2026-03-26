@@ -8,6 +8,7 @@ to handle_errors and exits.
 """
 
 from langgraph.graph import END, StateGraph
+from langgraph.graph.state import CompiledStateGraph
 
 from alphawatch.agents.nodes.ingestion import (
     chunk_documents,
@@ -33,11 +34,11 @@ def _has_new_filings(state: IngestionState) -> str:
     return "parse_documents" if filings else "handle_errors"
 
 
-def build_ingestion_graph() -> StateGraph:
+def build_ingestion_graph() -> CompiledStateGraph:
     """Build and compile the IngestionGraph.
 
     Returns:
-        A compiled LangGraph StateGraph ready for invocation.
+        A compiled LangGraph graph ready for invocation.
     """
     graph = StateGraph(IngestionState)
 
