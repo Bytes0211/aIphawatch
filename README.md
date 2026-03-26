@@ -95,11 +95,11 @@ terraform apply
 ## Testing
 
 ```bash
-# Backend tests
-pytest
+# Backend tests (67 passing)
+uv run pytest tests/ -v
 
 # Backend with coverage
-pytest --cov=alphawatch --cov-report=term-missing
+uv run pytest tests/ --cov=alphawatch --cov-report=term-missing
 
 # Type checking
 mypy alphawatch/
