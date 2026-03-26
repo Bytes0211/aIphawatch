@@ -69,11 +69,24 @@ npm run dev
 
 ### Infrastructure
 
+The `infra/` directory contains 8 Terraform modules and 2 environment configurations:
+
 ```bash
+# Initialize and deploy staging
 cd infra/environments/staging
 terraform init
+terraform plan
+terraform apply
+
+# Initialize and deploy production
+cd infra/environments/production
+terraform init
+terraform plan
 terraform apply
 ```
+
+**Modules:** `vpc`, `rds`, `elasticache`, `ecs`, `s3`, `cognito`, `cloudfront`, `secrets`
+**Environments:** `staging` (cost-optimized), `production` (Multi-AZ, auto-scaling)
 
 ## Testing
 
@@ -110,7 +123,9 @@ npx tsc --noEmit
 
 - [`docs/PRD-AIphaWatch-2026-03-25.md`](docs/PRD-AIphaWatch-2026-03-25.md) — Product requirements
 - [`docs/AIphaWatch-TechnicalSpec.md`](docs/AIphaWatch-TechnicalSpec.md) — Technical specification
+- [`docs/project-status.md`](docs/project-status.md) — Project status and phase tracking
 - [`AGENTS.md`](AGENTS.md) — AI agent guidance and architecture reference
+- [`developer/developer-journal.md`](developer/developer-journal.md) — Development log
 
 ## License
 
