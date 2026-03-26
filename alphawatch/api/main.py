@@ -7,7 +7,7 @@ from collections.abc import AsyncGenerator
 from fastapi import FastAPI
 
 from alphawatch.api.middleware import TenantMiddleware
-from alphawatch.api.routers import companies, health, watchlist
+from alphawatch.api.routers import companies, health, ingestion, watchlist
 from alphawatch.config import get_settings
 from alphawatch.redis import close_redis, init_redis
 
@@ -60,6 +60,7 @@ def create_app() -> FastAPI:
     app.include_router(health.router)
     app.include_router(companies.router)
     app.include_router(watchlist.router)
+    app.include_router(ingestion.router)
 
     logging.basicConfig(
         level=logging.DEBUG if settings.debug else logging.INFO,

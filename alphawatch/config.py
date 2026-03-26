@@ -72,6 +72,22 @@ class Settings(BaseSettings):
         """Cognito JWKS endpoint."""
         return f"{self.cognito_issuer}/.well-known/jwks.json"
 
+    # AWS General
+    aws_region: str = "us-east-1"
+
+    # SEC EDGAR
+    edgar_user_agent: str = "AIphaWatch/1.0 (contact@alphawatch.dev)"
+    edgar_base_url: str = "https://efts.sec.gov/LATEST"
+    edgar_rate_limit: float = 10.0  # requests per second
+
+    # AWS Bedrock Embeddings
+    bedrock_embeddings_model_id: str = "amazon.titan-embed-text-v2:0"
+    bedrock_embeddings_dimension: int = 1536
+
+    # Chunking
+    chunk_size_tokens: int = 512
+    chunk_overlap_tokens: int = 64
+
 
 @lru_cache
 def get_settings() -> Settings:
