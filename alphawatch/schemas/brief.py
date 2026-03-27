@@ -1,4 +1,4 @@
-"""Analyst brief request/response schemas."""
+"""Analyst brief request/response Pydantic schemas."""
 
 import uuid
 from datetime import datetime
@@ -12,8 +12,9 @@ class BriefSectionResponse(BaseModel):
 
     Attributes:
         id: Section UUID.
-        section_type: Section identifier (snapshot, what_changed, etc.).
-        section_order: Display ordering (1-based).
+        section_type: One of snapshot, what_changed, risk_flags, sentiment,
+            sources, executive_summary, suggested_followups.
+        section_order: Display ordering integer (1-based).
         content: JSONB section payload (schema varies by type).
         created_at: Record creation timestamp.
     """
@@ -32,9 +33,9 @@ class BriefResponse(BaseModel):
 
     Attributes:
         id: Brief UUID.
-        company_id: Company UUID.
-        user_id: User UUID who requested the brief.
-        session_id: Generation session UUID.
+        company_id: UUID of the company this brief covers.
+        user_id: UUID of the user who requested generation.
+        session_id: UUID linking this brief to its generation session.
         generated_at: Timestamp of brief generation.
         sections: Ordered list of brief sections.
     """
@@ -50,11 +51,13 @@ class BriefResponse(BaseModel):
 
 
 class BriefSummaryResponse(BaseModel):
-    """Brief metadata without sections (for listing).
+    """Lightweight brief summary — metadata only, no sections.
+
+    Used for listing recent briefs without pulling full section content.
 
     Attributes:
         id: Brief UUID.
-        company_id: Company UUID.
+        company_id: UUID of the associated company.
         generated_at: Timestamp of brief generation.
     """
 
@@ -66,10 +69,11 @@ class BriefSummaryResponse(BaseModel):
 
 
 class BriefGenerateRequest(BaseModel):
-    """Request body for force-generating a new brief.
+    """Optional request body for triggering brief generation.
 
     Attributes:
-        query_text: Optional custom query to seed chunk retrieval.
+        query_text: Optional seed query to focus chunk retrieval.
+            When omitted, a broad company-overview query is used.
     """
 
     query_text: str | None = None
@@ -79,11 +83,11 @@ class BriefGenerateResponse(BaseModel):
     """Response after triggering brief generation.
 
     Attributes:
-        status: Generation status.
-        brief_id: UUID of the generated brief (empty on failure).
-        company_id: Company UUID.
-        ticker: Ticker symbol.
-        message: Human-readable status message.
+        status: One of 'completed', 'completed_with_errors'.
+        brief_id: UUID string of the generated brief (empty on failure).
+        company_id: UUID string of the company.
+        ticker: Stock ticker symbol.
+        message: Human-readable status description.
     """
 
     status: str

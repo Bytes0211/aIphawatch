@@ -1,7 +1,8 @@
 """LangGraph state schemas and data classes for agent workflows."""
 
 from dataclasses import dataclass, field
-from typing import Any, Required, TypedDict
+from decimal import Decimal
+from typing import Any, Literal, Required, TypedDict
 
 
 class BaseState(TypedDict, total=False):
@@ -231,3 +232,83 @@ class BriefState(BaseState, total=False):
     suggested_followups_section: BriefSectionData
     sections: list[BriefSectionData]
     brief_id: str
+
+
+@dataclass
+class Citation:
+    """A source citation attached to a chat response.
+
+    Attributes:
+        chunk_id: UUID string of the DocumentChunk cited.
+        document_id: UUID string of the parent Document.
+        title: Document title (e.g. 'Apple 10-K 2025').
+        source_type: Filing type (edgar_10k, edgar_10q, etc.).
+        source_url: Original filing URL.
+        excerpt: Short text excerpt from the chunk that supports the claim.
+    """
+
+    chunk_id: str
+    document_id: str
+    title: str
+    source_type: str
+    source_url: str
+    excerpt: str = ""
+
+
+@dataclass
+class ChatMessage:
+    """A single message in a chat session.
+
+    Attributes:
+        role: One of 'user', 'assistant', or 'system'.
+        content: Message text content.
+        citations: Source citations attached to assistant messages.
+        turn_index: Zero-based position in the session message list.
+        created_at: ISO 8601 timestamp string.
+    """
+
+    role: Literal["user", "assistant", "system"]
+    content: str
+    citations: list[Citation] = field(default_factory=list)
+    turn_index: int = 0
+    created_at: str = ""
+
+
+class ChatState(BaseState, total=False):
+    """State for the ChatGraph workflow.
+
+    Attributes:
+        session_id: UUID string of the ChatSession being updated.
+        company_name: Full company name for LLM context.
+        user_message: The raw text of the current user turn.
+        messages: Full message history for the session.
+        context_summary: Rolling summary of messages prior to the window.
+        summary_through: Index of the last message captured in the summary.
+        retrieved_chunk_ids: Cached chunk IDs from previous turns.
+        retrieved_chunks: Chunks fetched/reused for the current turn.
+        new_chunk_ids: Chunk IDs retrieved fresh this turn (not from cache).
+        cache_hit: True when all chunks were served from cache.
+        comparison_entity: Ticker detected for a competitor-comparison query.
+        intent: Classified intent — 'rag', 'comparison', or 'general'.
+        llm_context: Trimmed message list actually sent to Bedrock.
+        response: The assistant's full generated response text.
+        citations: Source citations for the current response.
+        suggested_followups: Follow-up question chips generated post-response.
+    """
+
+    session_id: str
+    company_name: str
+    user_message: str
+    messages: list[ChatMessage]
+    context_summary: str
+    summary_through: int
+    retrieved_chunk_ids: list[str]
+    retrieved_chunks: list[ChunkResult]
+    new_chunk_ids: list[str]
+    cache_hit: bool
+    comparison_entity: str
+    intent: str
+    llm_context: list[ChatMessage]
+    response: str
+    citations: list[Citation]
+    suggested_followups: list[str]
