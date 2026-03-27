@@ -1,7 +1,7 @@
 """LangGraph state schemas and data classes for agent workflows."""
 
 from dataclasses import dataclass, field
-from typing import Any, TypedDict
+from typing import Any, Required, TypedDict
 
 
 class BaseState(TypedDict, total=False):
@@ -18,8 +18,8 @@ class BaseState(TypedDict, total=False):
 
     tenant_id: str
     user_id: str
-    company_id: str
-    ticker: str
+    company_id: Required[str]
+    ticker: Required[str]
     errors: list[str]
     metadata: dict[str, Any]
 
@@ -97,3 +97,44 @@ class IngestionState(BaseState, total=False):
     parsed_documents: list[ParsedDoc]
     chunks: list[Chunk]
     embeddings_stored: int
+
+
+@dataclass
+class NewsArticleRef:
+    """Reference to a discovered news article.
+
+    Attributes:
+        title: Article headline.
+        description: Article excerpt/summary.
+        url: URL to the full article.
+        source_name: Name of the news source.
+        published_at: ISO 8601 publication timestamp.
+        content: Article content (truncated or full).
+    """
+
+    title: str
+    description: str
+    url: str
+    source_name: str
+    published_at: str
+    content: str = ""
+
+
+class SentimentState(BaseState, total=False):
+    """State for the SentimentGraph workflow.
+
+    Attributes:
+        company_name: Full company name for context.
+        days_back: Number of days to look back for news.
+        articles: Discovered news articles.
+        parsed_documents: News articles parsed into documents.
+        sentiment_scores: List of (document_id, score) tuples.
+        scores_stored: Count of sentiment records stored.
+    """
+
+    company_name: str
+    days_back: int
+    articles: list[NewsArticleRef]
+    parsed_documents: list[ParsedDoc]
+    sentiment_scores: list[tuple[str, int]]
+    scores_stored: int

@@ -2,9 +2,9 @@
 
 **Version:** 1.0  
 **Last Updated:** 2026-03-26  
-**Lifecycle:** Phase 1 (MVP) underway — API skeleton running  
-**Overall Status:** ✅ Phase 0 complete; 🔧 Phase 1 MVP in progress (Steps 1–6 of 14 complete)  
-**Deliverables Completed:** Product requirements document; full technical specification; LangGraph workflow designs (IngestionGraph, BriefGraph, ChatGraph, SentimentGraph); PostgreSQL schema with pgvector and RLS; FastAPI API contracts; React component tree; Celery job definitions; Terraform module layout; CI/CD pipeline spec; **Terraform infrastructure — 8 modules + staging/production environments**; **Database schema — 12 ORM models + Alembic migration + HNSW index + RLS policies**; **FastAPI skeleton — auth middleware, tenant context, health endpoint**; **Company resolution + Watchlist CRUD — repositories, schemas, routers**; **EDGAR ingestion — IngestionGraph + EDGAR client + chunker + embeddings service**; **Financial API — Alpha Vantage client + snapshot repository + upsert**; **Test suite — 142 tests passing**
+**Lifecycle:** Phase 1 (MVP) underway — Data ingestion complete  
+**Overall Status:** ✅ Phase 0 complete; 🔧 Phase 1 MVP in progress (Steps 1–7 of 14 complete)  
+**Deliverables Completed:** Product requirements document; full technical specification; LangGraph workflow designs (IngestionGraph, BriefGraph, ChatGraph, SentimentGraph); PostgreSQL schema with pgvector and RLS; FastAPI API contracts; React component tree; Celery job definitions; Terraform module layout; CI/CD pipeline spec; **Terraform infrastructure — 8 modules + staging/production environments**; **Database schema — 12 ORM models + Alembic migration + HNSW index + RLS policies**; **FastAPI skeleton — auth middleware, tenant context, health endpoint**; **Company resolution + Watchlist CRUD — repositories, schemas, routers**; **EDGAR ingestion — IngestionGraph + EDGAR client + chunker + embeddings service**; **Financial API — Alpha Vantage client + snapshot repository + upsert**; **News ingestion — NewsAPI client + BedrockClient + SentimentGraph + sentiment repository**; **Test suite — 178 tests passing**
 
 ---
 
@@ -24,7 +24,8 @@ The platform reduces per-company research time from hours to minutes, delivers c
 4. ~~**Company resolution + Watchlist CRUD endpoints**~~ ✅ Complete
 5. ~~**EDGAR ingestion service + IngestionGraph**~~ ✅ Complete
 6. ~~**Financial API ingestion + FinancialSnapshot storage**~~ ✅ Complete
-7. **Lightweight news ingestion + SentimentGraph** ← **next**
+7. ~~**Lightweight news ingestion + SentimentGraph**~~ ✅ Complete
+8. **BriefGraph — all 8 sections with parallel fan-out** ← **next**
 
 ---
 
@@ -33,7 +34,7 @@ The platform reduces per-company research time from hours to minutes, delivers c
 | Phase | Scope | Status | Notes |
 |-------|-------|--------|-------|
 | Phase 0 — Planning & Alignment | PRD, technical specification, architectural direction | ✅ Complete | All planning documents authored; 14-step Phase 1 build order defined |
-| Phase 1 — MVP | Auth, watchlist, EDGAR ingestion, financial API, news, analyst briefs, chat, dashboard, infra | 🔧 In Progress | Steps 1–6 complete; news ingestion is next |
+| Phase 1 — MVP | Auth, watchlist, EDGAR ingestion, financial API, news, analyst briefs, chat, dashboard, infra | 🔧 In Progress | Steps 1–7 complete; data ingestion pipeline complete; BriefGraph implementation is next |
 | Phase 2 — Intelligence Expansion | Full news depth, sentiment enrichment, risk flag detection, document upload, competitor lookup | ⏳ Planned | — |
 | Phase 3 — SaaS Hardening | Tenant branding, alert notifications, admin panel, bulk import, brief export, usage tracking | ⏳ Planned | — |
 | Phase 4 — Scale & Polish | Earnings transcripts, watchlist sharing, scheduled briefs, comparison views, audit log, API access | ⏳ Planned | — |
@@ -50,7 +51,7 @@ The platform reduces per-company research time from hours to minutes, delivers c
 - [x] Step 4: Company resolution + Watchlist CRUD — repositories, schemas, routers (88 tests)
 - [x] Step 5: EDGAR ingestion — IngestionGraph, EDGAR client, chunker, embeddings, admin trigger (113 tests)
 - [x] Step 6: Financial API — Alpha Vantage client, snapshot repository, upsert, safe parsing (142 tests)
-- [ ] Step 7: Lightweight news ingestion + `SentimentGraph`
+- [x] Step 7: Lightweight news ingestion + `SentimentGraph` — NewsAPI client, BedrockClient, sentiment repository (178 tests)
 - [ ] Step 8: `BriefGraph` — all 8 sections with parallel fan-out
 - [ ] Step 9: Brief API endpoint + React `BriefViewer`
 - [ ] Step 10: `ChatGraph` + SSE streaming endpoint
@@ -63,13 +64,80 @@ Steps 1–4 can be parallelized; Steps 5–8 are sequential; Steps 9–13 can be
 
 ---
 
-## Risks & Mitigations
+## Step 7 Implementation Details — News Ingestion + SentimentGraph
+
+**Completed:** 2026-03-26  
+**Test Coverage:** 34 new tests (178 total)  
+**Files Created:** 7 (services/news.py, services/bedrock.py, agents/nodes/sentiment.py, agents/graphs/sentiment.py, repositories/sentiment.py, tests/test_sentiment.py, docs/step7-summary.md)
+
+### Components
+
+1. **NewsClient** (`services/news.py`) — NewsAPI integration
+   - Fetches recent news articles by ticker and/or company name
+   - Deduplicates by URL (handles ticker + name overlap)
+   - Free tier: 100 requests/day, 10 articles per company
+   - Defaults to last 7 days of news
+
+2. **BedrockClient** (`services/bedrock.py`) — AWS Bedrock wrapper
+   - Simplified interface for Claude Messages API
+   - JSON-structured outputs with automatic markdown stripping
+   - Sentiment scoring (-100 to +100) using Claude Haiku
+   - Error-resilient: returns neutral score (0) on failures
+   - Retry logic via boto3 Config (3 attempts, adaptive mode)
+
+3. **SentimentGraph** (`agents/graphs/sentiment.py`) — LangGraph workflow
+   - Pipeline: `fetch_news → parse_articles → store_articles → score_sentiments → store_sentiments → handle_errors`
+   - Conditional routing: skips pipeline if no articles found
+   - News articles stored as documents with `source_type='news'` but NOT chunked/embedded (sentiment-only)
+
+4. **SentimentRepository** (`repositories/sentiment.py`) — Data access layer
+   - `create_sentiment()`, `bulk_create_sentiments()` for storage
+   - `get_average_sentiment()`, `get_sentiment_by_source()` for aggregation
+   - `get_sentiment_trend()` for daily time-series data
+
+### Key Design Decisions
+
+- **News articles NOT chunked:** Short articles (200-500 words) used only for sentiment scoring, not RAG retrieval. Saves processing time and embedding costs.
+- **Error-resilient scoring:** `score_sentiment()` returns neutral score (0) on Bedrock failures rather than blocking the pipeline.
+- **Async executor for boto3:** Synchronous boto3 calls run off the event loop via `asyncio.run_in_executor()` to prevent blocking.
+- **Sentiment score range (-100 to +100):** Human-interpretable scale with validation at repository layer.
+
+### Configuration Added
+
+```bash
+# NewsAPI
+NEWSAPI_API_KEY=your-key-here
+NEWSAPI_PAGE_SIZE=10
+NEWSAPI_DAILY_LIMIT=100
+
+# Bedrock Models
+BEDROCK_SENTIMENT_MODEL_ID=anthropic.claude-3-haiku-20240307-v1:0
+BEDROCK_BRIEF_MODEL_ID=anthropic.claude-3-5-sonnet-20241022-v2:0
+BEDROCK_CHAT_MODEL_ID=anthropic.claude-3-5-sonnet-20241022-v2:0
+BEDROCK_FOLLOWUP_MODEL_ID=anthropic.claude-3-haiku-20240307-v1:0
+```
+
+### Integration Points
+
+- **BriefGraph (Step 8):** `build_sentiment` section will consume sentiment scores via `SentimentRepository.get_average_sentiment()`
+- **Dashboard (Step 12):** Sentiment trends surface in Monday morning digest via `get_sentiment_trend()`
+- **Celery (Step 14):** Scheduled news ingestion task will invoke `build_sentiment_graph().ainvoke()`
+
+### Performance Notes
+
+- **NewsAPI rate limits:** Free tier 100 requests/day = ~3-4 companies per day. Requires batching or upgrade to premium ($449/month unlimited) for production.
+- **Bedrock cost:** Claude Haiku at ~$0.00008 per article. Daily cost for 50 companies × 10 articles = ~$0.04/day.
+
+---
+
+## Risks & Mitigations</text>
 
 | Risk | Impact | Likelihood | Mitigation |
 |------|--------|------------|------------|
 | LLM hallucination in analyst briefs | High | Medium | Citation-per-claim enforced in all prompts; post-generation validation that cited sources exist; "What changed" is data-driven (snapshot diffs, no LLM) |
 | SEC EDGAR rate limits and parsing inconsistency across filers | Medium | High | Respectful crawling with exponential backoff; `content_hash` (SHA-256) deduplication to avoid re-processing; `unstructured` library for multi-format parsing |
 | Free-tier financial API limits (Alpha Vantage: 25 req/day) insufficient at scale | Medium | High | Prioritize refresh by most-watched companies; display `last_updated_at` timestamps; plan migration to Polygon.io for production |
+| NewsAPI free-tier rate limits (100 req/day) insufficient for multi-tenant production | Medium | High | Batch news ingestion once per day per company; prioritize high-activity watchlists; upgrade to premium tier ($449/month unlimited) for production; consider Tavily API as alternative |
 | Chunk cache staleness after new document ingestion | Medium | Medium | Cache keyed by `(company_id, document_id, chunk_id)`; invalidate per-company on new document ingestion; retrieval timestamps in citations surface staleness to analysts |
 | Multi-tenant data isolation leakage via vector search | High | Low | Repository-layer `tenant_id` scoping + PostgreSQL RLS as defense-in-depth; vector search filtered by `company_id` set derived from watchlist join |
 | Brief generation P95 latency exceeds 15s SLA | Medium | Medium | BriefGraph fan-out runs 4 sections in parallel via LangGraph `Send`; exec summary synthesizes pre-built sections (fastest path); LangSmith tracing to identify bottlenecks |
@@ -88,6 +156,7 @@ Steps 1–4 can be parallelized; Steps 5–8 are sequential; Steps 9–13 can be
 - **Rolling context summary for long sessions:** When message count >20, messages `0..N-10` are summarized into `context_summary`. LLM receives summary + last 10 raw messages + top-8 chunks (~4,200 tokens total, well within Claude's 200K context window).
 - **Companies are global entities, not tenant-scoped:** AAPL is shared. Tenant isolation enforced through watchlist joins at the repository layer with RLS as defense-in-depth.
 - **BriefGraph fan-out:** `build_snapshot`, `build_what_changed`, `build_risk_flags`, and `build_sentiment` run in parallel via LangGraph `Send` after `retrieve_chunks`. `build_exec_summary` runs last, synthesizing sections rather than raw data to prevent unsupported claims.
+- **News articles are sentiment-only, not chunked:** NewsAPI articles stored with `source_type='news'` but excluded from vector search. Sentiment scores from Claude Haiku aggregated for brief `build_sentiment` section and dashboard trending. Keeps RAG focused on authoritative sources (SEC filings, financial data).
 
 ---
 
@@ -95,5 +164,6 @@ Steps 1–4 can be parallelized; Steps 5–8 are sequential; Steps 9–13 can be
 
 - `docs/PRD-AIphaWatch-2026-03-25.md`
 - `docs/AIphaWatch-TechnicalSpec.md`
+- `docs/step7-summary.md`
 - `developer/developer-journal.md`
 - `README.md`

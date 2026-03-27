@@ -84,10 +84,22 @@ class Settings(BaseSettings):
     bedrock_embeddings_model_id: str = "amazon.titan-embed-text-v2:0"
     bedrock_embeddings_dimension: int = 1536
 
+    # AWS Bedrock Models
+    bedrock_brief_model_id: str = "anthropic.claude-3-5-sonnet-20241022-v2:0"
+    bedrock_chat_model_id: str = "anthropic.claude-3-5-sonnet-20241022-v2:0"
+    bedrock_sentiment_model_id: str = "anthropic.claude-3-haiku-20240307-v1:0"
+    bedrock_followup_model_id: str = "anthropic.claude-3-haiku-20240307-v1:0"
+
     # Alpha Vantage
     alpha_vantage_api_key: str = ""
     alpha_vantage_base_url: str = "https://www.alphavantage.co/query"
     alpha_vantage_daily_limit: int = 25  # free-tier limit
+
+    # NewsAPI
+    newsapi_api_key: str = ""
+    newsapi_base_url: str = "https://newsapi.org/v2"
+    newsapi_daily_limit: int = 100  # free-tier limit
+    newsapi_page_size: int = 10  # articles per company
 
     # Chunking
     chunk_size_tokens: int = 512

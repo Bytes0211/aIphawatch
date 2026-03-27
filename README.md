@@ -95,7 +95,7 @@ terraform apply
 ## Testing
 
 ```bash
-# Backend tests (67 passing)
+# Backend tests (178 passing)
 uv run pytest tests/ -v
 
 # Backend with coverage
