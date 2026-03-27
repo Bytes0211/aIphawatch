@@ -7,7 +7,7 @@ from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from alphawatch.agents.state import ChunkResult
-from alphawatch.models.document import Document, DocumentChunk
+from alphawatch.models.document import DocumentChunk
 
 
 class ChunkRepository:

@@ -21,7 +21,6 @@ retrieve_chunks
 """
 
 import asyncio
-import json
 import logging
 import uuid
 from decimal import Decimal

@@ -1,7 +1,6 @@
 """LangGraph state schemas and data classes for agent workflows."""
 
 from dataclasses import dataclass, field
-from decimal import Decimal
 from typing import Any, Literal, Required, TypedDict
 
 
