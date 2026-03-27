@@ -16,14 +16,20 @@ AI-powered equity intelligence for buy-side analysts.
 
 AIphaWatch is a multi-tenant SaaS platform that ingests SEC EDGAR filings, financial data, and news to generate structured AI analyst briefs and power a conversational RAG chat interface — reducing company research from hours to minutes.
 
+---
+
 ## Features
 
-- **Analyst Briefs** — 8-section AI-generated briefs (snapshot, what changed, risk flags, sentiment, executive summary) via LangGraph + AWS Bedrock
-- **RAG Chat** — Multi-turn conversational interface grounded in real source data, streamed via SSE with inline citations
-- **Watchlist Dashboard** — Monday-morning digest sorted by most material changes across your tracked companies
-- **Automated Ingestion** — SEC EDGAR filings, financial snapshots (Alpha Vantage / Polygon), and news (NewsAPI / Tavily) ingested on schedule via Celery
-- **Multi-Tenant** — Tenant isolation enforced at the repository layer with PostgreSQL RLS as defense-in-depth
-- **Citation-Backed** — Every claim in the executive summary traces to a retrieved source chunk
+- **Analyst Briefs** — 8-section AI-generated briefs (snapshot, what changed, risk flags, sentiment, executive summary) via LangGraph + AWS Bedrock. Fan-out parallelism keeps P95 generation under 15 s.
+- **RAG Chat** — Multi-turn conversational interface grounded in real EDGAR source data. Responses stream sentence-by-sentence via Server-Sent Events with inline citations.
+- **Chunk Cache** — `retrieved_chunk_ids` persisted in `ChatSession` avoids re-embedding on follow-up questions. Target >70% cache hit rate per session.
+- **Rolling Context Summary** — Conversations beyond 20 messages are compressed into a rolling summary (~300 tokens) so the LLM context window stays bounded regardless of session length.
+- **Watchlist Dashboard** — Monday-morning digest sorted by most material changes across your tracked companies.
+- **Automated Ingestion** — SEC EDGAR filings, financial snapshots (Alpha Vantage), and news (NewsAPI) ingested on schedule via Celery + Redis.
+- **Multi-Tenant** — Tenant isolation enforced at the repository layer with PostgreSQL RLS as defence-in-depth.
+- **Citation-Backed** — Every claim in the executive summary traces to a retrieved source chunk. Hallucinated citations are dropped post-generation.
+
+---
 
 ## Tech Stack
 
@@ -39,6 +45,114 @@ AIphaWatch is a multi-tenant SaaS platform that ingests SEC EDGAR filings, finan
 | Storage | S3 |
 | IaC | Terraform |
 | CI/CD | GitHub Actions |
+
+---
+
+## Agent Architecture
+
+LangGraph owns all stateful, multi-step workflows. Celery owns the clock. They meet at a well-defined boundary: Celery enqueues a task with an input payload; LangGraph executes the graph and writes results to Postgres.
+
+### BriefGraph — fan-out / fan-in
+
+Five section builders run **in parallel** via LangGraph `Send` after chunk retrieval. The executive summary runs last, after fan-in, so it can only synthesise information that was surfaced in the parallel sections.
+
+```
+retrieve_chunks          (Titan Embeddings v2 → pgvector cosine search, top-8 EDGAR chunks)
+    └─ Send (parallel fan-out)
+        ├─ build_snapshot        (data-driven — latest FinancialSnapshot, no LLM)
+        ├─ build_what_changed    (data-driven — snapshot diff, 0.5% threshold, no LLM)
+        ├─ build_risk_flags      (Claude Sonnet — up to 5 flags, sorted by severity)
+        ├─ build_sentiment       (data-driven — pre-computed SentimentRecord aggregates)
+        └─ build_sources         (data-driven — deduplicated citation list)
+    └─ assemble_sections         (fan-in — collects and sorts all parallel outputs)
+        └─ build_executive_summary   (Claude Sonnet — synthesises sections, citation guard)
+            └─ build_suggested_followups  (Claude Haiku — 4 follow-up chips)
+                └─ store_brief       (persists AnalystBrief + BriefSection rows)
+                    └─ handle_errors → END
+```
+
+### ChatGraph — conditional routing
+
+```
+prepare_context          (loads ChatSession from DB; builds context window:
+                          rolling summary + last 10 raw messages)
+    └─ detect_intent     (Claude Haiku — 'rag' | 'comparison' | 'general';
+                          falls back to 'rag' on any error)
+        ├─ (rag / comparison) → check_chunk_cache
+        │       ├─ (cache hit,  >70% target) ──────────────────────→ generate_response
+        │       └─ (cache miss) → retrieve_chunks                  → generate_response
+        └─ (general) ──────────────────────────────────────────────→ generate_response
+    └─ generate_response     (Claude Sonnet — context window + chunks + question)
+        └─ generate_followups    (Claude Haiku — 3 follow-up chips)
+            └─ persist_turn      (appends messages; merges new chunk IDs into cache)
+                └─ maybe_summarize   (Claude Haiku — triggers at >20 msgs)
+                    └─ handle_errors → END
+```
+
+### SSE Event Stream
+
+`POST /api/chat/sessions/{session_id}/messages` streams a sequence of Server-Sent Events:
+
+```
+data: {"type": "token",     "token": "Apple's revenue grew..."}   ← one per sentence
+data: {"type": "token",     "token": "...12% year-over-year. "}
+data: {"type": "citations", "citations": [{"chunk_id": "...", "title": "Apple 10-K 2025", "source_type": "edgar_10k", "source_url": "...", "excerpt": "..."}]}
+data: {"type": "followups", "questions": ["What drove the growth?", "How do margins compare YoY?", "What is the capex outlook?"]}
+data: {"type": "done",      "session_id": "<uuid>"}
+
+# On error:
+data: {"type": "error",     "message": "An unexpected error occurred. Please try again."}
+```
+
+Response headers: `Content-Type: text/event-stream`, `Cache-Control: no-cache`, `X-Accel-Buffering: no`
+
+### SentimentGraph
+
+```
+fetch_news → parse_articles → store_articles → score_sentiments → store_sentiments → handle_errors → END
+    └─ (no articles found) ──────────────────────────────────────────────────────→ handle_errors
+```
+
+### IngestionGraph
+
+```
+fetch_filings → parse_documents → chunk_documents → embed_chunks → store_chunks → handle_errors → END
+    └─ (no new filings) ──────────────────────────────────────────────────────→ handle_errors
+```
+
+---
+
+## API Endpoints
+
+### Implemented
+
+| Method | Path | Description | Auth |
+|---|---|---|---|
+| `GET` | `/health` | ALB health check | none |
+| `GET` | `/api/companies/resolve?q={query}` | Resolve ticker/name to canonical company | analyst |
+| `GET` | `/api/companies/{company_id}` | Get company by UUID | analyst |
+| `GET` | `/api/watchlist` | List user watchlist with company data | analyst |
+| `POST` | `/api/watchlist` | Add company by ticker | analyst |
+| `DELETE` | `/api/watchlist/{company_id}` | Remove from watchlist | analyst |
+| `POST` | `/api/ingestion/trigger` | Manually trigger EDGAR ingestion | admin |
+| `GET` | `/api/companies/{company_id}/brief` | Get latest brief with all sections | analyst |
+| `POST` | `/api/companies/{company_id}/brief/generate` | Force-generate a new brief | analyst |
+| `GET` | `/api/companies/{company_id}/briefs` | List recent briefs (metadata only) | analyst |
+| `GET` | `/api/companies/{company_id}/brief/{brief_id}/sections` | Get sections for a specific brief | analyst |
+| `POST` | `/api/chat/sessions` | Create new chat session | analyst |
+| `GET` | `/api/chat/sessions?company_id={id}` | List sessions for a company | analyst |
+| `GET` | `/api/chat/sessions/{session_id}` | Get session metadata | analyst |
+| `DELETE` | `/api/chat/sessions/{session_id}` | Delete session (ownership-enforced, 204) | analyst |
+| `GET` | `/api/chat/sessions/{session_id}/messages` | Get full message history | analyst |
+| `POST` | `/api/chat/sessions/{session_id}/messages` | Send message — returns SSE stream | analyst |
+
+### Planned
+
+| Method | Path | Description | Auth |
+|---|---|---|---|
+| `GET` | `/api/dashboard` | Watchlist digest sorted by most changed | analyst |
+
+---
 
 ## Getting Started
 
@@ -89,13 +203,15 @@ terraform plan
 terraform apply
 ```
 
-**Modules:** `vpc`, `rds`, `elasticache`, `ecs`, `s3`, `cognito`, `cloudfront`, `secrets`
+**Modules:** `vpc`, `rds`, `elasticache`, `ecs`, `s3`, `cognito`, `cloudfront`, `secrets`  
 **Environments:** `staging` (cost-optimized), `production` (Multi-AZ, auto-scaling)
+
+---
 
 ## Testing
 
 ```bash
-# Backend tests (249 passing)
+# Backend tests (360 passing)
 uv run pytest tests/ -v
 
 # Backend with coverage
@@ -114,6 +230,27 @@ npm test
 npx tsc --noEmit
 ```
 
+### Test Coverage by Module
+
+| Test File | Scope | Tests |
+|---|---|---|
+| `test_models.py` | ORM model registration + structure | 30 |
+| `test_config.py` | Settings defaults, computed URLs, env overrides | 14 |
+| `test_auth.py` | Bearer token extraction, `AuthError` | 9 |
+| `test_dependencies.py` | `get_current_user`, `require_role` RBAC | 8 |
+| `test_api.py` | Health endpoint, middleware auth, schemas | 10 |
+| `test_companies.py` | Company schemas, auth enforcement, routing | 10 |
+| `test_watchlist.py` | Watchlist schemas, auth enforcement, routing | 12 |
+| `test_ingestion.py` | State types, chunker, EDGAR mapping, graph, endpoint | 29 |
+| `test_financial.py` | Safe parsing, data classes, schemas, client, config | 25 |
+| `test_sentiment.py` | NewsClient, BedrockClient, SentimentGraph, repository | 34 |
+| `test_brief.py` | BriefState types, all nodes, BriefGraph, repositories | 71 |
+| `test_chat.py` | ChatState types, all nodes, routing, repository, schemas, API | 95 |
+| `test_briefs_api.py` | Brief API schemas and routing | 13 |
+| **Total** | | **360** |
+
+---
+
 ## Project Status
 
 | Phase | Status | Description |
@@ -123,13 +260,34 @@ npx tsc --noEmit
 | Phase 3 — SaaS Hardening | ⏳ Planned | Tenant branding, alerts, admin panel, bulk import, brief export, usage tracking |
 | Phase 4 — Scale & Polish | ⏳ Planned | Earnings transcripts, watchlist sharing, scheduled briefs, comparison views, audit log |
 
+### Phase 1 Build Order
+
+- [x] Step 1: Terraform — VPC, RDS, Redis, Cognito, ECS, S3, CloudFront, Secrets
+- [x] Step 2: Database schema — 12 ORM models, Alembic migration, HNSW index, RLS policies
+- [x] Step 3: FastAPI skeleton — Cognito JWT auth, TenantMiddleware, health endpoint
+- [x] Step 4: Company resolution + Watchlist CRUD endpoints
+- [x] Step 5: EDGAR ingestion — `IngestionGraph`, EDGAR client, chunker, embeddings
+- [x] Step 6: Financial API — Alpha Vantage client, `FinancialSnapshot` repository
+- [x] Step 7: News ingestion — NewsAPI client, BedrockClient, `SentimentGraph`
+- [x] Step 8: `BriefGraph` — all 8 sections with parallel fan-out
+- [x] Step 9: Brief API endpoints + Pydantic schemas
+- [x] Step 10: `ChatGraph` + SSE streaming endpoint
+- [ ] Step 11: React `ChatContainer` + streaming UI
+- [ ] Step 12: Dashboard endpoint + React `WatchlistGrid`
+- [ ] Step 13: `PeersChips` + competitor detection in chat
+- [ ] Step 14: CI/CD pipeline + staging deployment
+
+---
+
 ## Documentation
 
 - [`docs/PRD-AIphaWatch-2026-03-25.md`](docs/PRD-AIphaWatch-2026-03-25.md) — Product requirements
 - [`docs/AIphaWatch-TechnicalSpec.md`](docs/AIphaWatch-TechnicalSpec.md) — Technical specification
-- [`docs/project-status.md`](docs/project-status.md) — Project status and phase tracking
-- [`AGENTS.md`](AGENTS.md) — AI agent guidance and architecture reference
+- [`docs/project-status.md`](docs/project-status.md) — Detailed phase and step tracking
+- [`AGENTS.md`](AGENTS.md) — AI agent guidance, graph shapes, and architecture reference
 - [`developer/developer-journal.md`](developer/developer-journal.md) — Development log
+
+---
 
 ## License
 
