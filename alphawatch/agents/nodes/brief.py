@@ -31,7 +31,6 @@ from alphawatch.agents.state import (
     BriefSectionData,
     BriefState,
     ChunkResult,
-    RiskFlagItem,
 )
 from alphawatch.config import get_settings
 from alphawatch.database import async_session_factory
@@ -454,7 +453,6 @@ Return only the JSON object, no other text.
             lambda: client.invoke_with_json(
                 prompt=prompt,
                 system_prompt=system_prompt,
-                model_id=settings.bedrock_brief_model_id,
                 max_tokens=1500,
                 temperature=0.0,
             ),
@@ -758,7 +756,6 @@ Return only the JSON object, no other text.
             lambda: client.invoke_with_json(
                 prompt=prompt,
                 system_prompt=system_prompt,
-                model_id=settings.bedrock_brief_model_id,
                 max_tokens=2000,
                 temperature=0.2,
             ),

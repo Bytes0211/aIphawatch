@@ -51,9 +51,14 @@ class ChunkRepository:
         # The <=> operator is pgvector cosine distance (lower = more similar).
         # We convert to similarity = 1 - distance so higher = better.
         source_filter = ""
+        bind_params: dict[str, Any] = {
+            "embedding": str(query_embedding),
+            "company_id": str(company_id),
+            "top_k": top_k,
+        }
         if source_types:
-            placeholders = ", ".join(f"'{st}'" for st in source_types)
-            source_filter = f"AND d.source_type IN ({placeholders})"
+            source_filter = "AND d.source_type = ANY(:source_types)"
+            bind_params["source_types"] = source_types
 
         sql = text(
             f"""
@@ -77,14 +82,7 @@ class ChunkRepository:
             """
         )
 
-        result = await self._session.execute(
-            sql,
-            {
-                "embedding": str(query_embedding),
-                "company_id": str(company_id),
-                "top_k": top_k,
-            },
-        )
+        result = await self._session.execute(sql, bind_params)
 
         rows = result.mappings().all()
         return [
@@ -154,35 +152,22 @@ class ChunkRepository:
         Returns:
             Total number of chunks with embeddings for this company.
         """
-        stmt = (
-            select(DocumentChunk)
-            .join(Document, Document.id == DocumentChunk.document_id)
-            .where(
-                DocumentChunk.company_id == company_id,
-                DocumentChunk.embedding.is_not(None),
-            )
-        )
-
+        source_filter = ""
+        bind_params: dict[str, Any] = {"company_id": str(company_id)}
         if source_types:
-            stmt = stmt.where(Document.source_type.in_(source_types))
-
-        # Use a subquery count for efficiency
-        if source_types:
-            placeholders = ", ".join("'" + st + "'" for st in source_types)
-            source_type_clause = f"AND d.source_type IN ({placeholders})"
-        else:
-            source_type_clause = ""
+            source_filter = "AND d.source_type = ANY(:source_types)"
+            bind_params["source_types"] = source_types
 
         count_sql = text(
-            """
+            f"""
             SELECT COUNT(*)
             FROM document_chunks dc
             JOIN documents d ON d.id = dc.document_id
             WHERE dc.company_id = :company_id
               AND dc.embedding IS NOT NULL
+              {source_filter}
             """
-            + source_type_clause
         )
 
-        result = await self._session.execute(count_sql, {"company_id": str(company_id)})
+        result = await self._session.execute(count_sql, bind_params)
         return result.scalar_one() or 0
