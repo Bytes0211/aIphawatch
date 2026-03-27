@@ -1,10 +1,10 @@
 # AIphaWatch — Project Status
 
 **Version:** 1.0  
-**Last Updated:** 2026-03-27 (updated after Step 11 + PR hardening fixes)  
-**Lifecycle:** Phase 1 (MVP) underway — Agent + core chat UI complete  
-**Overall Status:** ✅ Phase 0 complete; 🔧 Phase 1 MVP in progress (Steps 1–11 of 14 complete)
-**Deliverables Completed:** Product requirements document; full technical specification; LangGraph workflow designs (IngestionGraph, BriefGraph, ChatGraph, SentimentGraph); PostgreSQL schema with pgvector and RLS; FastAPI API contracts; React component tree; Celery job definitions; Terraform module layout; CI/CD pipeline spec; **Terraform infrastructure — 8 modules + staging/production environments**; **Database schema — 12 ORM models + Alembic migration + HNSW index + RLS policies**; **FastAPI skeleton — auth middleware, tenant context, health endpoint**; **Company resolution + Watchlist CRUD — repositories, schemas, routers**; **EDGAR ingestion — IngestionGraph + EDGAR client + chunker + embeddings service**; **Financial API — Alpha Vantage client + snapshot repository + upsert**; **News ingestion — NewsAPI client + BedrockClient + SentimentGraph + sentiment repository**; **BriefGraph — 8-section analyst brief with parallel fan-out, pgvector RAG retrieval, BriefRepository, ChunkRepository**; **ChatGraph — multi-turn RAG chat with SSE streaming, chunk cache, rolling context summary, ChatRepository**; **Step 11 React chat UI — ChatContainer + streaming message rendering + citation/follow-up components + Zustand store + SSE hook**; **Test suite — 360 backend tests passing**
+**Last Updated:** 2026-03-27  
+**Lifecycle:** Phase 1 (MVP) underway — Dashboard complete  
+**Overall Status:** ✅ Phase 0 complete; 🔧 Phase 1 MVP in progress (Steps 1–12 of 14 complete)
+**Deliverables Completed:** Product requirements document; full technical specification; LangGraph workflow designs (IngestionGraph, BriefGraph, ChatGraph, SentimentGraph); PostgreSQL schema with pgvector and RLS; FastAPI API contracts; React component tree; Celery job definitions; Terraform module layout; CI/CD pipeline spec; **Terraform infrastructure — 8 modules + staging/production environments**; **Database schema — 12 ORM models + Alembic migration + HNSW index + RLS policies**; **FastAPI skeleton — auth middleware, tenant context, health endpoint**; **Company resolution + Watchlist CRUD — repositories, schemas, routers**; **EDGAR ingestion — IngestionGraph + EDGAR client + chunker + embeddings service**; **Financial API — Alpha Vantage client + snapshot repository + upsert**; **News ingestion — NewsAPI client + BedrockClient + SentimentGraph + sentiment repository**; **BriefGraph — 8-section analyst brief with parallel fan-out, pgvector RAG retrieval, BriefRepository, ChunkRepository**; **ChatGraph — multi-turn RAG chat with SSE streaming, chunk cache, rolling context summary, ChatRepository**; **Step 11 React chat UI — ChatContainer + streaming message rendering + citation/follow-up components + Zustand store + SSE hook**; **Dashboard — change_score-sorted watchlist digest + React WatchlistGrid**; **Test suite — 377 backend tests passing**
 
 ---
 
@@ -29,7 +29,8 @@ The platform reduces per-company research time from hours to minutes, delivers c
 9. ~~**Brief API endpoint**~~ ✅ Complete (implemented as part of Step 8/10)
 10. ~~**ChatGraph + SSE streaming endpoint**~~ ✅ Complete
 11. ~~**React `ChatContainer` + streaming UI**~~ ✅ Complete
-12. **Dashboard endpoint + React `WatchlistGrid`** ← **next**
+12. ~~**Dashboard endpoint + React `WatchlistGrid`**~~ ✅ Complete
+13. **`PeersChips` + competitor detection in chat** ← **next**
 
 ---
 
@@ -38,7 +39,7 @@ The platform reduces per-company research time from hours to minutes, delivers c
 | Phase | Scope | Status | Notes |
 |-------|-------|--------|-------|
 | Phase 0 — Planning & Alignment | PRD, technical specification, architectural direction | ✅ Complete | All planning documents authored; 14-step Phase 1 build order defined |
-| Phase 1 — MVP | Auth, watchlist, EDGAR ingestion, financial API, news, analyst briefs, chat, dashboard, infra | 🔧 In Progress | Steps 1–11 complete; agent + core chat UI done; dashboard is next |
+| Phase 1 — MVP | Auth, watchlist, EDGAR ingestion, financial API, news, analyst briefs, chat, dashboard, infra | 🔧 In Progress | Steps 1–12 complete; PeersChips + CI/CD remaining |
 | Phase 2 — Intelligence Expansion | Full news depth, sentiment enrichment, risk flag detection, document upload, competitor lookup | ⏳ Planned | — |
 | Phase 3 — SaaS Hardening | Tenant branding, alert notifications, admin panel, bulk import, brief export, usage tracking | ⏳ Planned | — |
 | Phase 4 — Scale & Polish | Earnings transcripts, watchlist sharing, scheduled briefs, comparison views, audit log, API access | ⏳ Planned | — |
@@ -60,7 +61,7 @@ The platform reduces per-company research time from hours to minutes, delivers c
 - [x] Step 9: Brief API endpoint — `GET/POST /api/companies/{id}/brief`, `BriefSectionResponse`, `BriefGenerateResponse` (implemented alongside Step 8)
 - [x] Step 10: `ChatGraph` + SSE streaming endpoint — multi-turn RAG chat, chunk cache, rolling context summary, ChatRepository, 5 SSE event types (360 tests)
 - [x] Step 11: React `ChatContainer` + streaming UI — session lifecycle, SSE token stream rendering, citations, follow-up chips, company context banner, stream-state UX hardening
-- [ ] Step 12: Dashboard endpoint + React `WatchlistGrid`
+- [x] Step 12: Dashboard endpoint + React WatchlistGrid — change_score aggregation, CompanyCard, time range toggle (377 tests)
 - [ ] Step 13: `PeersChips` + competitor detection in chat
 - [ ] Step 14: CI/CD pipeline + staging deployment
 
