@@ -3,8 +3,8 @@
 **Version:** 1.0  
 **Last Updated:** 2026-03-26  
 **Lifecycle:** Phase 1 (MVP) underway — Data ingestion complete  
-**Overall Status:** ✅ Phase 0 complete; 🔧 Phase 1 MVP in progress (Steps 1–8 of 14 complete)
-**Deliverables Completed:** Product requirements document; full technical specification; LangGraph workflow designs (IngestionGraph, BriefGraph, ChatGraph, SentimentGraph); PostgreSQL schema with pgvector and RLS; FastAPI API contracts; React component tree; Celery job definitions; Terraform module layout; CI/CD pipeline spec; **Terraform infrastructure — 8 modules + staging/production environments**; **Database schema — 12 ORM models + Alembic migration + HNSW index + RLS policies**; **FastAPI skeleton — auth middleware, tenant context, health endpoint**; **Company resolution + Watchlist CRUD — repositories, schemas, routers**; **EDGAR ingestion — IngestionGraph + EDGAR client + chunker + embeddings service**; **Financial API — Alpha Vantage client + snapshot repository + upsert**; **News ingestion — NewsAPI client + BedrockClient + SentimentGraph + sentiment repository**; **BriefGraph — 8-section analyst brief with parallel fan-out, pgvector RAG retrieval, BriefRepository, ChunkRepository**; **Test suite — 249 tests passing**
+**Overall Status:** ✅ Phase 0 complete; 🔧 Phase 1 MVP in progress (Steps 1–9 of 14 complete)
+**Deliverables Completed:** Product requirements document; full technical specification; LangGraph workflow designs (IngestionGraph, BriefGraph, ChatGraph, SentimentGraph); PostgreSQL schema with pgvector and RLS; FastAPI API contracts; React component tree; Celery job definitions; Terraform module layout; CI/CD pipeline spec; **Terraform infrastructure — 8 modules + staging/production environments**; **Database schema — 12 ORM models + Alembic migration + HNSW index + RLS policies**; **FastAPI skeleton — auth middleware, tenant context, health endpoint**; **Company resolution + Watchlist CRUD — repositories, schemas, routers**; **EDGAR ingestion — IngestionGraph + EDGAR client + chunker + embeddings service**; **Financial API — Alpha Vantage client + snapshot repository + upsert**; **News ingestion — NewsAPI client + BedrockClient + SentimentGraph + sentiment repository**; **BriefGraph — 8-section analyst brief with parallel fan-out, pgvector RAG retrieval, BriefRepository, ChunkRepository**; **Brief API — 4 endpoints (get latest, generate, sections, list)**; **Test suite — 265 tests passing**
 
 ---
 
@@ -26,7 +26,8 @@ The platform reduces per-company research time from hours to minutes, delivers c
 6. ~~**Financial API ingestion + FinancialSnapshot storage**~~ ✅ Complete
 7. ~~**Lightweight news ingestion + SentimentGraph**~~ ✅ Complete
 8. ~~**BriefGraph — all 8 sections with parallel fan-out**~~ ✅ Complete
-9. **Brief API endpoint + React `BriefViewer`** ← **next**
+9. ~~**Brief API endpoint + React `BriefViewer`**~~ ✅ Complete
+10. **`ChatGraph` + SSE streaming endpoint** ← **next**
 
 ---
 
@@ -35,7 +36,7 @@ The platform reduces per-company research time from hours to minutes, delivers c
 | Phase | Scope | Status | Notes |
 |-------|-------|--------|-------|
 | Phase 0 — Planning & Alignment | PRD, technical specification, architectural direction | ✅ Complete | All planning documents authored; 14-step Phase 1 build order defined |
-| Phase 1 — MVP | Auth, watchlist, EDGAR ingestion, financial API, news, analyst briefs, chat, dashboard, infra | 🔧 In Progress | Steps 1–8 complete; BriefGraph implemented; Brief API + React BriefViewer is next |
+| Phase 1 — MVP | Auth, watchlist, EDGAR ingestion, financial API, news, analyst briefs, chat, dashboard, infra | 🔧 In Progress | Steps 1–9 complete; ChatGraph + SSE streaming is next |
 | Phase 2 — Intelligence Expansion | Full news depth, sentiment enrichment, risk flag detection, document upload, competitor lookup | ⏳ Planned | — |
 | Phase 3 — SaaS Hardening | Tenant branding, alert notifications, admin panel, bulk import, brief export, usage tracking | ⏳ Planned | — |
 | Phase 4 — Scale & Polish | Earnings transcripts, watchlist sharing, scheduled briefs, comparison views, audit log, API access | ⏳ Planned | — |
@@ -54,7 +55,7 @@ The platform reduces per-company research time from hours to minutes, delivers c
 - [x] Step 6: Financial API — Alpha Vantage client, snapshot repository, upsert, safe parsing (142 tests)
 - [x] Step 7: Lightweight news ingestion + `SentimentGraph` — NewsAPI client, BedrockClient, sentiment repository (178 tests)
 - [x] Step 8: `BriefGraph` — all 8 sections with parallel fan-out, pgvector RAG retrieval, BriefRepository, ChunkRepository (249 tests)
-- [ ] Step 9: Brief API endpoint + React `BriefViewer`
+- [x] Step 9: Brief API — 4 endpoints (get latest, generate, sections, list), schemas (265 tests)
 - [ ] Step 10: `ChatGraph` + SSE streaming endpoint
 - [ ] Step 11: React `ChatContainer` + streaming UI
 - [ ] Step 12: Dashboard endpoint + React `WatchlistGrid`
