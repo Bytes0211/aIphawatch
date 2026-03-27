@@ -71,9 +71,7 @@ resource "aws_eip" "nat" {
   domain = "vpc"
 
   tags = merge(var.tags, {
-    Name = var.single_nat_gateway
-      ? "${var.project}-${var.environment}-nat-eip"
-      : "${var.project}-${var.environment}-nat-eip-${count.index}"
+    Name = var.single_nat_gateway ? "${var.project}-${var.environment}-nat-eip" : "${var.project}-${var.environment}-nat-eip-${count.index}"
   })
 }
 
@@ -83,9 +81,7 @@ resource "aws_nat_gateway" "main" {
   subnet_id     = aws_subnet.public[count.index].id
 
   tags = merge(var.tags, {
-    Name = var.single_nat_gateway
-      ? "${var.project}-${var.environment}-nat"
-      : "${var.project}-${var.environment}-nat-${count.index}"
+    Name = var.single_nat_gateway ? "${var.project}-${var.environment}-nat" : "${var.project}-${var.environment}-nat-${count.index}"
   })
 
   depends_on = [aws_internet_gateway.main]
@@ -123,9 +119,7 @@ resource "aws_route_table" "private" {
   }
 
   tags = merge(var.tags, {
-    Name = var.single_nat_gateway
-      ? "${var.project}-${var.environment}-private-rt"
-      : "${var.project}-${var.environment}-private-rt-${count.index}"
+    Name = var.single_nat_gateway ? "${var.project}-${var.environment}-private-rt" : "${var.project}-${var.environment}-private-rt-${count.index}"
   })
 }
 
