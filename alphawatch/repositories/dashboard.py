@@ -69,12 +69,13 @@ class DashboardRepository:
     ) -> list[CompanyCard]:
         """Build dashboard cards for all companies on the user's watchlist.
 
-        For each watched company, aggregates:
-        - Latest financial snapshot (price, change %)
-        - Sentiment score (7-day average)
-        - New filings count (within time window)
-        - Risk flag count and max severity
-        - Latest brief ID
+        Uses **6 batch queries** regardless of watchlist size (no N+1):
+        1. Watchlist + companies
+        2. Latest snapshots (window function)
+        3. Current-window sentiment averages
+        4. Prior-window sentiment averages (for delta)
+        5. New filings counts + risk summaries + latest brief IDs
+           (combined into one query)
 
         Cards are sorted by change_score descending.
 
@@ -85,7 +86,7 @@ class DashboardRepository:
         Returns:
             List of CompanyCard objects sorted by change_score.
         """
-        # Get user's watchlist with companies
+        # 1. Watchlist with companies
         stmt = (
             select(WatchlistEntry, Company)
             .join(Company, Company.id == WatchlistEntry.company_id)
@@ -97,165 +98,203 @@ class DashboardRepository:
         if not rows:
             return []
 
-        cards: list[CompanyCard] = []
-        for entry, company in rows:
-            card = await self._build_card(company, user_id, days)
-            cards.append(card)
+        companies: dict[uuid.UUID, Company] = {}
+        for _entry, company in rows:
+            companies[company.id] = company
+        cids = list(companies.keys())
+        cid_strs = [str(c) for c in cids]
 
-        # Sort by change_score descending
+        # 2. Latest snapshots (batch)
+        snapshots = await self._batch_latest_snapshots(cid_strs)
+
+        # 3+4. Sentiment: current and prior window (batch)
+        sentiment_current = await self._batch_avg_sentiment(cid_strs, days)
+        sentiment_prior = await self._batch_avg_sentiment(
+            cid_strs, days * 2, offset_days=days
+        )
+
+        # 5. Filings, risks, briefs (batch)
+        filings_map = await self._batch_new_filings(cid_strs, days)
+        risk_map = await self._batch_risk_summary(cid_strs)
+        brief_map = await self._batch_latest_briefs(cid_strs, str(user_id))
+
+        # Assemble cards
+        sev_map = {4: "critical", 3: "high", 2: "medium", 1: "low"}
+        cards: list[CompanyCard] = []
+
+        for cid in cids:
+            company = companies[cid]
+            cid_str = str(cid)
+
+            snap = snapshots.get(cid_str)
+            price = float(snap["price"]) if snap and snap["price"] else None
+            price_change = (
+                float(snap["price_change_pct"])
+                if snap and snap["price_change_pct"]
+                else None
+            )
+            last_updated = snap["created_at"] if snap else None
+
+            sentiment = sentiment_current.get(cid_str)
+            prior = sentiment_prior.get(cid_str)
+            sentiment_delta: int | None = None
+            if sentiment is not None and prior is not None:
+                sentiment_delta = sentiment - prior
+
+            filings_count = filings_map.get(cid_str, 0)
+            risk_count, risk_sev_rank = risk_map.get(cid_str, (0, None))
+            max_severity = sev_map.get(risk_sev_rank) if risk_sev_rank else None
+            brief_id_str = brief_map.get(cid_str)
+            brief_id = uuid.UUID(brief_id_str) if brief_id_str else None
+
+            change_score = _compute_change_score(
+                new_filings=filings_count,
+                risk_flags=risk_count,
+                price_change_pct=price_change,
+                sentiment_delta=sentiment_delta,
+            )
+
+            cards.append(
+                CompanyCard(
+                    company_id=cid,
+                    ticker=company.ticker,
+                    name=company.name,
+                    sector=company.sector,
+                    price=price,
+                    price_change_pct=price_change,
+                    sentiment_score=sentiment,
+                    sentiment_delta=sentiment_delta,
+                    new_filings_count=filings_count,
+                    risk_flag_count=risk_count,
+                    risk_flag_max_severity=max_severity,
+                    last_updated_at=last_updated,
+                    brief_id=brief_id,
+                    change_score=change_score,
+                )
+            )
+
         cards.sort(key=lambda c: c.change_score, reverse=True)
         return cards
 
-    async def _build_card(
-        self,
-        company: Company,
-        user_id: uuid.UUID,
-        days: int,
-    ) -> CompanyCard:
-        """Build a single CompanyCard with aggregated data.
+    # ------------------------------------------------------------------
+    # Batch helpers (one query per data type for all company IDs)
+    # ------------------------------------------------------------------
 
-        Args:
-            company: The Company ORM object.
-            user_id: User UUID for brief lookup.
-            days: Lookback window.
-
-        Returns:
-            A fully populated CompanyCard.
-        """
-        company_id = company.id
-
-        # Latest financial snapshot
-        snap = await self._get_latest_snapshot(company_id)
-        price = float(snap.price) if snap and snap.price else None
-        price_change = float(snap.price_change_pct) if snap and snap.price_change_pct else None
-
-        # Sentiment (7-day average via raw SQL for efficiency)
-        sentiment = await self._get_avg_sentiment(company_id, days)
-
-        # New filings count
-        filings_count = await self._count_new_filings(company_id, days)
-
-        # Risk flags
-        risk_count, max_severity = await self._get_risk_summary(company_id)
-
-        # Latest brief
-        brief_id = await self._get_latest_brief_id(company_id, user_id)
-
-        # Last updated timestamp
-        last_updated = snap.created_at if snap else None
-
-        change_score = _compute_change_score(
-            new_filings=filings_count,
-            risk_flags=risk_count,
-            price_change_pct=price_change,
-            sentiment_delta=sentiment,
-        )
-
-        return CompanyCard(
-            company_id=company_id,
-            ticker=company.ticker,
-            name=company.name,
-            sector=company.sector,
-            price=price,
-            price_change_pct=price_change,
-            sentiment_score=sentiment,
-            sentiment_delta=sentiment,  # simplified: delta ≈ score for Phase 1
-            new_filings_count=filings_count,
-            risk_flag_count=risk_count,
-            risk_flag_max_severity=max_severity,
-            last_updated_at=last_updated,
-            brief_id=brief_id,
-            change_score=change_score,
-        )
-
-    async def _get_latest_snapshot(
-        self, company_id: uuid.UUID
-    ) -> FinancialSnapshot | None:
-        """Get the most recent financial snapshot."""
-        stmt = (
-            select(FinancialSnapshot)
-            .where(FinancialSnapshot.company_id == company_id)
-            .order_by(FinancialSnapshot.snapshot_date.desc())
-            .limit(1)
-        )
-        result = await self._session.execute(stmt)
-        return result.scalar_one_or_none()
-
-    async def _get_avg_sentiment(
-        self, company_id: uuid.UUID, days: int
-    ) -> int | None:
-        """Get average sentiment score over the lookback window."""
+    async def _batch_latest_snapshots(
+        self, cid_strs: list[str]
+    ) -> dict[str, dict[str, Any]]:
+        """Batch-fetch the latest snapshot per company via window function."""
         sql = text(
             """
-            SELECT AVG(score)::int
-            FROM sentiment_records
-            WHERE company_id = :cid
-              AND scored_at >= NOW() - MAKE_INTERVAL(days => :days)
+            SELECT DISTINCT ON (company_id)
+                   company_id, price, price_change_pct, created_at
+            FROM financial_snapshots
+            WHERE company_id = ANY(:cids)
+            ORDER BY company_id, snapshot_date DESC
             """
         )
-        result = await self._session.execute(
-            sql, {"cid": str(company_id), "days": days}
-        )
-        return result.scalar_one_or_none()
+        result = await self._session.execute(sql, {"cids": cid_strs})
+        return {
+            str(r.company_id): {
+                "price": r.price,
+                "price_change_pct": r.price_change_pct,
+                "created_at": r.created_at,
+            }
+            for r in result.mappings()
+        }
 
-    async def _count_new_filings(
-        self, company_id: uuid.UUID, days: int
-    ) -> int:
-        """Count documents ingested within the lookback window."""
-        sql = text(
-            """
-            SELECT COUNT(*)
-            FROM documents
-            WHERE company_id = :cid
-              AND ingested_at >= NOW() - MAKE_INTERVAL(days => :days)
-            """
-        )
-        result = await self._session.execute(
-            sql, {"cid": str(company_id), "days": days}
-        )
-        return result.scalar_one() or 0
-
-    async def _get_risk_summary(
-        self, company_id: uuid.UUID
-    ) -> tuple[int, str | None]:
-        """Get risk flag count and highest severity."""
-        sql = text(
-            """
-            SELECT COUNT(*), MAX(
-                CASE severity
-                    WHEN 'critical' THEN 4
-                    WHEN 'high' THEN 3
-                    WHEN 'medium' THEN 2
-                    WHEN 'low' THEN 1
-                    ELSE 0
-                END
-            ) AS max_sev_rank
-            FROM risk_flags
-            WHERE company_id = :cid
-            """
-        )
-        result = await self._session.execute(sql, {"cid": str(company_id)})
-        row = result.one()
-        count = row[0] or 0
-        sev_rank = row[1]
-
-        sev_map = {4: "critical", 3: "high", 2: "medium", 1: "low"}
-        max_severity = sev_map.get(sev_rank) if sev_rank else None
-
-        return count, max_severity
-
-    async def _get_latest_brief_id(
-        self, company_id: uuid.UUID, user_id: uuid.UUID
-    ) -> uuid.UUID | None:
-        """Get the most recent brief ID for user + company."""
-        stmt = (
-            select(AnalystBrief.id)
-            .where(
-                AnalystBrief.company_id == company_id,
-                AnalystBrief.user_id == user_id,
+    async def _batch_avg_sentiment(
+        self, cid_strs: list[str], days: int, offset_days: int = 0
+    ) -> dict[str, int]:
+        """Batch-fetch average sentiment per company for a time window."""
+        if offset_days:
+            sql = text(
+                """
+                SELECT company_id, AVG(score)::int AS avg_score
+                FROM sentiment_records
+                WHERE company_id = ANY(:cids)
+                  AND scored_at >= NOW() - MAKE_INTERVAL(days => :days)
+                  AND scored_at <  NOW() - MAKE_INTERVAL(days => :offset)
+                GROUP BY company_id
+                """
             )
-            .order_by(AnalystBrief.generated_at.desc())
-            .limit(1)
+            result = await self._session.execute(
+                sql, {"cids": cid_strs, "days": days, "offset": offset_days}
+            )
+        else:
+            sql = text(
+                """
+                SELECT company_id, AVG(score)::int AS avg_score
+                FROM sentiment_records
+                WHERE company_id = ANY(:cids)
+                  AND scored_at >= NOW() - MAKE_INTERVAL(days => :days)
+                GROUP BY company_id
+                """
+            )
+            result = await self._session.execute(
+                sql, {"cids": cid_strs, "days": days}
+            )
+        return {str(r.company_id): r.avg_score for r in result.mappings()}
+
+    async def _batch_new_filings(
+        self, cid_strs: list[str], days: int
+    ) -> dict[str, int]:
+        """Batch-count new documents per company within the lookback window."""
+        sql = text(
+            """
+            SELECT company_id, COUNT(*) AS cnt
+            FROM documents
+            WHERE company_id = ANY(:cids)
+              AND ingested_at >= NOW() - MAKE_INTERVAL(days => :days)
+            GROUP BY company_id
+            """
         )
-        result = await self._session.execute(stmt)
-        return result.scalar_one_or_none()
+        result = await self._session.execute(
+            sql, {"cids": cid_strs, "days": days}
+        )
+        return {str(r.company_id): r.cnt for r in result.mappings()}
+
+    async def _batch_risk_summary(
+        self, cid_strs: list[str]
+    ) -> dict[str, tuple[int, int | None]]:
+        """Batch-fetch risk flag count and max severity rank per company."""
+        sql = text(
+            """
+            SELECT company_id,
+                   COUNT(*) AS cnt,
+                   MAX(CASE severity
+                       WHEN 'critical' THEN 4
+                       WHEN 'high' THEN 3
+                       WHEN 'medium' THEN 2
+                       WHEN 'low' THEN 1
+                       ELSE 0
+                   END) AS max_sev_rank
+            FROM risk_flags
+            WHERE company_id = ANY(:cids)
+            GROUP BY company_id
+            """
+        )
+        result = await self._session.execute(sql, {"cids": cid_strs})
+        return {
+            str(r.company_id): (r.cnt, r.max_sev_rank)
+            for r in result.mappings()
+        }
+
+    async def _batch_latest_briefs(
+        self, cid_strs: list[str], user_id_str: str
+    ) -> dict[str, str]:
+        """Batch-fetch latest brief ID per company for a user."""
+        sql = text(
+            """
+            SELECT DISTINCT ON (company_id)
+                   company_id, id AS brief_id
+            FROM analyst_briefs
+            WHERE company_id = ANY(:cids)
+              AND user_id = :uid
+            ORDER BY company_id, generated_at DESC
+            """
+        )
+        result = await self._session.execute(
+            sql, {"cids": cid_strs, "uid": user_id_str}
+        )
+        return {str(r.company_id): str(r.brief_id) for r in result.mappings()}
