@@ -41,6 +41,13 @@ export function ChatContainer({
     }
   }, [initialSessionId, companyId, setSession]);
 
+  // Reset store when switching companies with no pre-existing session
+  useEffect(() => {
+    if (!initialSessionId) {
+      reset();
+    }
+  }, [companyId, initialSessionId, reset]);
+
   // Create a new session if none exists
   const ensureSession = useCallback(async (): Promise<string | null> => {
     if (sessionId) return sessionId;
@@ -69,7 +76,7 @@ export function ChatContainer({
       await new Promise((r) => setTimeout(r, 50));
       await sendMessage(message);
     },
-    [ensureSession, addUserMessage, sendMessage]
+    [ensureSession, addUserMessage, sendMessage],
   );
 
   // Handle follow-up chip clicks
@@ -77,7 +84,7 @@ export function ChatContainer({
     (question: string) => {
       handleSend(question);
     },
-    [handleSend]
+    [handleSend],
   );
 
   // Auto-send seed prompt on mount
