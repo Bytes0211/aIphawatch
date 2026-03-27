@@ -68,11 +68,11 @@ class ChatSessionCreateRequest(BaseModel):
 
     Attributes:
         company_id: UUID of the company to discuss.
-        ticker: Active company ticker for display context.
+        ticker: Ignored — ticker is derived server-side from the company record.
     """
 
     company_id: uuid.UUID
-    ticker: str
+    ticker: str | None = None
 
 
 class ChatSessionResponse(BaseModel):

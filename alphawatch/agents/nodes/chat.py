@@ -39,6 +39,8 @@ from alphawatch.config import get_settings
 from alphawatch.database import async_session_factory
 from alphawatch.repositories.chat import ChatRepository
 from alphawatch.repositories.chunks import ChunkRepository
+from alphawatch.repositories.companies import CompanyRepository
+from alphawatch.repositories.financial import FinancialSnapshotRepository
 from alphawatch.services.bedrock import BedrockClient
 from alphawatch.services.embeddings import EmbeddingsService
 
@@ -200,6 +202,7 @@ async def prepare_context(state: ChatState) -> dict[str, Any]:
                 role=m.get("role", "user"),
                 content=m.get("content", ""),
                 citations=[Citation(**c) for c in m.get("citations", [])],
+                suggested_followups=m.get("suggested_followups", []),
                 turn_index=m.get("turn_index", i),
                 created_at=m.get("created_at", ""),
             )
@@ -484,6 +487,96 @@ async def retrieve_chunks(state: ChatState) -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
+# Node 4b — competitor_lookup
+# ---------------------------------------------------------------------------
+
+
+async def competitor_lookup(state: ChatState) -> dict[str, Any]:
+    """Fetch financial snapshot for the comparison company.
+
+    Runs when ``detect_intent`` classified the query as 'comparison'
+    and extracted a ``comparison_entity`` ticker. Looks up the competitor
+    company in the database and fetches its latest financial snapshot.
+    The data is session-scoped and ephemeral — not persisted.
+
+    Args:
+        state: Current chat state with comparison_entity ticker.
+
+    Returns:
+        Partial state update with competitor_data dict (or empty on failure).
+    """
+    comparison_ticker = state.get("comparison_entity", "")
+    errors = list(state.get("errors", []))
+
+    if not comparison_ticker:
+        return {"competitor_data": {}, "errors": errors}
+
+    try:
+        async with async_session_factory() as db:
+            company_repo = CompanyRepository(db)
+            comp = await company_repo.get_by_ticker(comparison_ticker)
+
+            if not comp:
+                logger.info(
+                    "competitor_lookup: ticker %s not found in DB",
+                    comparison_ticker,
+                )
+                return {
+                    "competitor_data": {
+                        "ticker": comparison_ticker,
+                        "available": False,
+                        "message": f"{comparison_ticker} not found in database",
+                    },
+                    "errors": errors,
+                }
+
+            fin_repo = FinancialSnapshotRepository(db)
+            snapshot = await fin_repo.get_latest(comp.id)
+
+        data: dict[str, Any] = {
+            "ticker": comp.ticker,
+            "name": comp.name,
+            "sector": comp.sector,
+            "available": True,
+        }
+
+        if snapshot:
+            data.update({
+                "snapshot_date": str(snapshot.snapshot_date),
+                "price": float(snapshot.price) if snapshot.price is not None else None,
+                "price_change_pct": (
+                    float(snapshot.price_change_pct)
+                    if snapshot.price_change_pct is not None
+                    else None
+                ),
+                "market_cap": snapshot.market_cap,
+                "pe_ratio": (
+                    float(snapshot.pe_ratio) if snapshot.pe_ratio is not None else None
+                ),
+                "debt_to_equity": (
+                    float(snapshot.debt_to_equity)
+                    if snapshot.debt_to_equity is not None
+                    else None
+                ),
+                "analyst_rating": snapshot.analyst_rating,
+            })
+        else:
+            data["message"] = "No financial snapshot available for comparison"
+
+        logger.info(
+            "competitor_lookup: %s — snapshot=%s",
+            comparison_ticker,
+            "available" if snapshot else "none",
+        )
+        return {"competitor_data": data, "errors": errors}
+
+    except Exception as exc:
+        errors.append(f"competitor_lookup failed for {comparison_ticker}: {exc}")
+        logger.error("competitor_lookup error: %s", exc)
+        return {"competitor_data": {}, "errors": errors}
+
+
+# ---------------------------------------------------------------------------
 # Node 5 — generate_response
 # ---------------------------------------------------------------------------
 
@@ -523,6 +616,25 @@ async def generate_response(state: ChatState) -> dict[str, Any]:
     )
     conversation_block = _format_messages_for_prompt(llm_context) if llm_context else ""
 
+    # Competitor context (only present for comparison queries)
+    competitor_data: dict[str, Any] = state.get("competitor_data", {})
+    competitor_block = ""
+    if competitor_data and competitor_data.get("available"):
+        comp = competitor_data
+
+        def _display(value: Any) -> Any:
+            return value if value is not None else "N/A"
+
+        competitor_block = (
+            f"\n=== COMPETITOR DATA: {comp.get('ticker', '')} ({comp.get('name', '')}) ===\n"
+            f"Price: ${_display(comp.get('price'))}, "
+            f"Change: {_display(comp.get('price_change_pct'))}%, "
+            f"Market Cap: {_display(comp.get('market_cap'))}, "
+            f"P/E: {_display(comp.get('pe_ratio'))}, "
+            f"D/E: {_display(comp.get('debt_to_equity'))}, "
+            f"Rating: {_display(comp.get('analyst_rating'))}\n"
+        )
+
     system_prompt = (
         f"You are an expert buy-side equity analyst assistant discussing "
         f"{company_name} ({ticker}) with an analyst. "
@@ -538,7 +650,7 @@ async def generate_response(state: ChatState) -> dict[str, Any]:
 
 === SOURCE DOCUMENTS ===
 {source_block}
-
+{competitor_block}
 === CURRENT QUESTION ===
 USER: {user_message}
 

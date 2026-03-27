@@ -42,7 +42,7 @@ export function useSSE() {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
-          body: JSON.stringify({ content: message }),
+          body: JSON.stringify({ message }),
           signal: controller.signal,
         });
 
@@ -75,14 +75,19 @@ export function useSSE() {
 
             switch (event.type) {
               case "token":
-                appendToken(event.content);
+                appendToken(event.token);
                 break;
-              case "citation":
-                addCitation(event.ref, event.url);
+              case "citations":
+                for (const c of event.citations) {
+                  addCitation(c.title, c.source_url);
+                }
                 break;
               case "followups":
-                setFollowUps(event.items);
+                setFollowUps(event.questions);
                 break;
+              case "error":
+                failStream(event.message);
+                return;
               case "done":
                 finishStream();
                 return;

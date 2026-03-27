@@ -263,6 +263,7 @@ class ChatMessage:
         role: One of 'user', 'assistant', or 'system'.
         content: Message text content.
         citations: Source citations attached to assistant messages.
+        suggested_followups: Follow-up chips generated for this message.
         turn_index: Zero-based position in the session message list.
         created_at: ISO 8601 timestamp string.
     """
@@ -270,6 +271,7 @@ class ChatMessage:
     role: Literal["user", "assistant", "system"]
     content: str
     citations: list[Citation] = field(default_factory=list)
+    suggested_followups: list[str] = field(default_factory=list)
     turn_index: int = 0
     created_at: str = ""
 
@@ -307,6 +309,7 @@ class ChatState(BaseState, total=False):
     new_chunk_ids: list[str]
     cache_hit: bool
     comparison_entity: str
+    competitor_data: dict[str, Any]
     intent: str
     llm_context: list[ChatMessage]
     response: str

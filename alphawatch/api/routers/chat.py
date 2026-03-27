@@ -68,7 +68,7 @@ async def create_session(
     session = await chat_repo.create_session(
         user_id=uuid.UUID(user.user_id),
         company_id=body.company_id,
-        ticker=body.ticker.upper(),
+        ticker=company.ticker,
     )
     return ChatSessionResponse.model_validate(session)
 

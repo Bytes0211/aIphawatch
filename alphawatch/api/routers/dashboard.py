@@ -2,6 +2,7 @@
 
 import uuid
 from datetime import datetime, timezone
+from typing import Literal
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -13,10 +14,14 @@ from alphawatch.schemas.dashboard import DashboardResponse
 
 router = APIRouter(prefix="/api", tags=["dashboard"])
 
+_DAYS_MAP: dict[str, int] = {"24h": 1, "7d": 7, "30d": 30}
+
 
 @router.get("/dashboard", response_model=DashboardResponse)
 async def get_dashboard(
-    time_range: str = Query("7d", description="Lookback period: 24h, 7d, or 30d"),
+    time_range: Literal["24h", "7d", "30d"] = Query(
+        "7d", description="Lookback period: 24h, 7d, or 30d"
+    ),
     user: CurrentUser = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> DashboardResponse:
@@ -33,14 +38,14 @@ async def get_dashboard(
 
     Returns:
         Dashboard with sorted company cards.
-    """
-    days_map = {"24h": 1, "7d": 7, "30d": 30}
-    days = days_map.get(time_range, 7)
 
+    Raises:
+        HTTPException: 422 if time_range is not one of '24h', '7d', '30d'.
+    """
     repo = DashboardRepository(db)
     cards = await repo.get_dashboard_cards(
         user_id=uuid.UUID(user.user_id),
-        days=days,
+        days=_DAYS_MAP[time_range],
     )
 
     return DashboardResponse(
