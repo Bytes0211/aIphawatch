@@ -1,9 +1,12 @@
 """Analyst brief API endpoints."""
 
+import logging
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
+
+logger = logging.getLogger(__name__)
 
 from alphawatch.api.dependencies import get_current_user, get_db
 from alphawatch.repositories.briefs import BriefRepository
@@ -146,10 +149,13 @@ async def generate_brief(
             ticker=company.ticker,
             message="Brief generated successfully",
         )
-    except Exception as exc:
+    except Exception:
+        logger.exception(
+            "Brief generation failed for company %s", company_id
+        )
         raise HTTPException(
             status_code=500,
-            detail=f"Brief generation failed: {exc}",
+            detail="Brief generation failed. Please try again later.",
         )
 
 
@@ -181,6 +187,10 @@ async def get_brief_sections(
     brief = await brief_repo.get_brief_by_id(brief_id)
 
     if not brief:
+        raise HTTPException(status_code=404, detail="Brief not found")
+
+    # Ownership check: brief must belong to the authenticated user and company
+    if brief.user_id != uuid.UUID(user.user_id) or brief.company_id != company_id:
         raise HTTPException(status_code=404, detail="Brief not found")
 
     return [
