@@ -1,0 +1,111 @@
+"use client";
+
+import { useCallback, useRef } from "react";
+import { parseSSEEvent } from "@/lib/sse";
+import { useChatStore } from "@/stores/chatStore";
+
+/**
+ * Hook for sending a chat message and streaming the SSE response.
+ *
+ * Connects to the backend chat endpoint via fetch + ReadableStream
+ * (not EventSource — needed for POST with body and auth headers).
+ */
+export function useSSE() {
+  const abortRef = useRef<AbortController | null>(null);
+  const {
+    sessionId,
+    startAssistantStream,
+    appendToken,
+    addCitation,
+    setFollowUps,
+    finishStream,
+  } = useChatStore();
+
+  const sendMessage = useCallback(
+    async (message: string) => {
+      if (!sessionId) return;
+
+      // Abort any in-flight stream
+      abortRef.current?.abort();
+      const controller = new AbortController();
+      abortRef.current = controller;
+
+      startAssistantStream();
+
+      const token = localStorage.getItem("auth_token") ?? "";
+
+      try {
+        const res = await fetch(
+          `/api/chat/sessions/${sessionId}/messages`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({ content: message }),
+            signal: controller.signal,
+          }
+        );
+
+        if (!res.ok || !res.body) {
+          finishStream();
+          return;
+        }
+
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() ?? "";
+
+          for (const line of lines) {
+            if (!line.startsWith("data: ")) continue;
+            const data = line.slice(6).trim();
+            if (!data) continue;
+
+            const event = parseSSEEvent(data);
+            if (!event) continue;
+
+            switch (event.type) {
+              case "token":
+                appendToken(event.content);
+                break;
+              case "citation":
+                addCitation(event.ref, event.url);
+                break;
+              case "followups":
+                setFollowUps(event.items);
+                break;
+              case "done":
+                finishStream();
+                return;
+            }
+          }
+        }
+
+        // Stream ended without explicit "done" event
+        finishStream();
+      } catch (err) {
+        if ((err as Error).name !== "AbortError") {
+          console.error("SSE stream error:", err);
+        }
+        finishStream();
+      }
+    },
+    [sessionId, startAssistantStream, appendToken, addCitation, setFollowUps, finishStream]
+  );
+
+  const cancel = useCallback(() => {
+    abortRef.current?.abort();
+    finishStream();
+  }, [finishStream]);
+
+  return { sendMessage, cancel };
+}
