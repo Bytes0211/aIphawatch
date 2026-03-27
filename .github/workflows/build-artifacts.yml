@@ -1,0 +1,116 @@
+name: Build Artifacts
+
+on:
+  workflow_call:
+    inputs:
+      aws_region:
+        required: true
+        type: string
+      aws_role_arn:
+        required: true
+        type: string
+      ecr_api_repository:
+        required: true
+        type: string
+      ecr_worker_repository:
+        required: true
+        type: string
+    outputs:
+      api_image_uri:
+        description: Built API image URI
+        value: ${{ jobs.build.outputs.api_image_uri }}
+      worker_image_uri:
+        description: Built worker image URI
+        value: ${{ jobs.build.outputs.worker_image_uri }}
+
+  workflow_dispatch:
+    inputs:
+      aws_region:
+        description: AWS region
+        required: true
+        default: us-east-1
+      aws_role_arn:
+        description: AWS IAM role ARN for OIDC
+        required: true
+      ecr_api_repository:
+        description: ECR repository name for API image
+        required: true
+      ecr_worker_repository:
+        description: ECR repository name for worker image
+        required: true
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      api_image_uri: ${{ steps.meta.outputs.api_image_uri }}
+      worker_image_uri: ${{ steps.meta.outputs.worker_image_uri }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ inputs.aws_role_arn || github.event.inputs.aws_role_arn }}
+          aws-region: ${{ inputs.aws_region || github.event.inputs.aws_region }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push API image
+        env:
+          REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          REPOSITORY: ${{ inputs.ecr_api_repository || github.event.inputs.ecr_api_repository }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker build -f Dockerfile -t "$REGISTRY/$REPOSITORY:$IMAGE_TAG" .
+          docker push "$REGISTRY/$REPOSITORY:$IMAGE_TAG"
+
+      - name: Build and push worker image
+        env:
+          REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          REPOSITORY: ${{ inputs.ecr_worker_repository || github.event.inputs.ecr_worker_repository }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker build -f Dockerfile -t "$REGISTRY/$REPOSITORY:$IMAGE_TAG" .
+          docker push "$REGISTRY/$REPOSITORY:$IMAGE_TAG"
+
+      - name: Build frontend artifact
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install frontend deps
+        run: npm ci
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Upload frontend build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-build-${{ github.sha }}
+          path: |
+            .next/**
+            public/**
+            package.json
+            next.config.mjs
+          retention-days: 7
+
+      - name: Export image URIs
+        id: meta
+        env:
+          REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          API_REPOSITORY: ${{ inputs.ecr_api_repository || github.event.inputs.ecr_api_repository }}
+          WORKER_REPOSITORY: ${{ inputs.ecr_worker_repository || github.event.inputs.ecr_worker_repository }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          echo "api_image_uri=$REGISTRY/$API_REPOSITORY:$IMAGE_TAG" >> "$GITHUB_OUTPUT"
+          echo "worker_image_uri=$REGISTRY/$WORKER_REPOSITORY:$IMAGE_TAG" >> "$GITHUB_OUTPUT"
