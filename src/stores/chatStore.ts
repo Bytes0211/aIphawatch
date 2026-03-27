@@ -8,6 +8,8 @@ export interface Citation {
 
 /** A single chat message (user or assistant). */
 export interface ChatMessage {
+  /** Stable unique ID for React keys/diffing. */
+  id: string;
   role: "user" | "assistant";
   content: string;
   citations: Citation[];
@@ -39,6 +41,12 @@ interface ChatState {
   setFollowUps: (items: string[]) => void;
   /** Mark the current stream as complete. */
   finishStream: () => void;
+  /**
+   * Mark the current stream as failed.
+   * Replaces an empty assistant placeholder with an error message,
+   * or appends a new assistant error message if no placeholder exists.
+   */
+  failStream: (errorText: string) => void;
   /** Reset chat state for a new session. */
   reset: () => void;
 }
@@ -57,6 +65,7 @@ export const useChatStore = create<ChatState>((set) => ({
       messages: [
         ...state.messages,
         {
+          id: crypto.randomUUID(),
           role: "user",
           content,
           citations: [],
@@ -72,6 +81,7 @@ export const useChatStore = create<ChatState>((set) => ({
       messages: [
         ...state.messages,
         {
+          id: crypto.randomUUID(),
           role: "assistant",
           content: "",
           citations: [],
@@ -124,5 +134,35 @@ export const useChatStore = create<ChatState>((set) => ({
       return { messages: msgs, isStreaming: false };
     }),
 
-  reset: () => set({ sessionId: null, messages: [], isStreaming: false, companyId: null }),
+  failStream: (errorText) =>
+    set((state) => {
+      const msgs = [...state.messages];
+      const last = msgs[msgs.length - 1];
+
+      if (
+        last?.role === "assistant" &&
+        last.isStreaming &&
+        (!last.content || last.content.trim() === "")
+      ) {
+        msgs[msgs.length - 1] = {
+          ...last,
+          content: errorText,
+          isStreaming: false,
+        };
+      } else {
+        msgs.push({
+          id: crypto.randomUUID(),
+          role: "assistant",
+          content: errorText,
+          citations: [],
+          followUps: [],
+          isStreaming: false,
+        });
+      }
+
+      return { messages: msgs, isStreaming: false };
+    }),
+
+  reset: () =>
+    set({ sessionId: null, messages: [], isStreaming: false, companyId: null }),
 }));

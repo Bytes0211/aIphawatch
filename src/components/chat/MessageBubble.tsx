@@ -32,8 +32,12 @@ export function MessageBubble({ message, onFollowUp }: MessageBubbleProps) {
         {/* Citations */}
         {message.citations.length > 0 && (
           <div className="mt-2 flex flex-wrap gap-1">
-            {message.citations.map((c, i) => (
-              <InlineCitation key={i} citationRef={c.ref} url={c.url} />
+            {message.citations.map((c) => (
+              <InlineCitation
+                key={`${c.ref}-${c.url}`}
+                citationRef={c.ref}
+                url={c.url}
+              />
             ))}
           </div>
         )}

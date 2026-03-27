@@ -28,8 +28,8 @@ export function MessageList({ messages, onFollowUp }: MessageListProps) {
 
   return (
     <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
-      {messages.map((msg, i) => (
-        <MessageBubble key={i} message={msg} onFollowUp={onFollowUp} />
+      {messages.map((msg) => (
+        <MessageBubble key={msg.id} message={msg} onFollowUp={onFollowUp} />
       ))}
       <div ref={bottomRef} />
     </div>

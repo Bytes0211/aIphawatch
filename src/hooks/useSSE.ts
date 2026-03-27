@@ -19,6 +19,7 @@ export function useSSE() {
     addCitation,
     setFollowUps,
     finishStream,
+    failStream,
   } = useChatStore();
 
   const sendMessage = useCallback(
@@ -35,21 +36,20 @@ export function useSSE() {
       const token = localStorage.getItem("auth_token") ?? "";
 
       try {
-        const res = await fetch(
-          `/api/chat/sessions/${sessionId}/messages`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify({ content: message }),
-            signal: controller.signal,
-          }
-        );
+        const res = await fetch(`/api/chat/sessions/${sessionId}/messages`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ content: message }),
+          signal: controller.signal,
+        });
 
         if (!res.ok || !res.body) {
-          finishStream();
+          failStream(
+            "I couldn’t get a response from the server. Please try again.",
+          );
           return;
         }
 
@@ -95,11 +95,23 @@ export function useSSE() {
       } catch (err) {
         if ((err as Error).name !== "AbortError") {
           console.error("SSE stream error:", err);
+          failStream(
+            "Something went wrong while streaming the response. Please try again.",
+          );
+        } else {
+          finishStream();
         }
-        finishStream();
       }
     },
-    [sessionId, startAssistantStream, appendToken, addCitation, setFollowUps, finishStream]
+    [
+      sessionId,
+      startAssistantStream,
+      appendToken,
+      addCitation,
+      setFollowUps,
+      finishStream,
+      failStream,
+    ],
   );
 
   const cancel = useCallback(() => {
