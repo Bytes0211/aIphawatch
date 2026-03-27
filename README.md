@@ -152,6 +152,28 @@ fetch_filings → parse_documents → chunk_documents → embed_chunks → store
 |---|---|---|---|
 | `GET` | `/api/dashboard` | Watchlist digest sorted by most changed | analyst |
 
+### Step 11 Frontend Streaming UI (Implemented)
+
+The React chat streaming UI is implemented under `src/` with a container-driven architecture, Zustand state, and SSE parsing utilities:
+
+- `src/components/chat/ChatContainer.tsx` — session lifecycle + send flow orchestration
+- `src/components/chat/MessageList.tsx` — scrollable message thread with stable message keys
+- `src/components/chat/MessageBubble.tsx` — role-based rendering, citations, follow-ups, streaming indicator
+- `src/components/chat/InlineCitation.tsx` — inline source link rendering
+- `src/components/chat/FollowUpChips.tsx` — clickable follow-up prompts
+- `src/components/chat/CompanyContextBanner.tsx` — active company context header
+- `src/components/chat/StreamingIndicator.tsx` — typing/streaming visual state
+- `src/components/chat/ChatInput.tsx` — composer with send controls
+- `src/hooks/useSSE.ts` — SSE fetch stream reader + event dispatch (`token`, `citations`, `followups`, `done`, `error`)
+- `src/stores/chatStore.ts` — Zustand store for messages/session/streaming and stream lifecycle actions (`startAssistantStream`, `appendToken`, `finishStream`, `failStream`)
+- `src/lib/sse.ts` — typed SSE event parsing
+- `src/lib/api.ts` — typed API wrappers for session and message calls
+
+PR hardening fixes included in Step 11:
+- Empty placeholder assistant bubble on fetch failure is handled via `failStream(errorText)` (no blank bubble remains)
+- Message list uses stable generated `id` keys (no array-index keys)
+- Cross-company stale messages are cleared by resetting store state when navigating to a company without a pre-existing session
+
 ---
 
 ## Getting Started
@@ -272,7 +294,7 @@ npx tsc --noEmit
 - [x] Step 8: `BriefGraph` — all 8 sections with parallel fan-out
 - [x] Step 9: Brief API endpoints + Pydantic schemas
 - [x] Step 10: `ChatGraph` + SSE streaming endpoint
-- [ ] Step 11: React `ChatContainer` + streaming UI
+- [x] Step 11: React `ChatContainer` + streaming UI
 - [ ] Step 12: Dashboard endpoint + React `WatchlistGrid`
 - [ ] Step 13: `PeersChips` + competitor detection in chat
 - [ ] Step 14: CI/CD pipeline + staging deployment

@@ -1,10 +1,10 @@
 # AIphaWatch — Project Status
 
 **Version:** 1.0  
-**Last Updated:** 2026-03-26 (updated after Steps 9 & 10)  
-**Lifecycle:** Phase 1 (MVP) underway — Agent layer complete  
-**Overall Status:** ✅ Phase 0 complete; 🔧 Phase 1 MVP in progress (Steps 1–10 of 14 complete)
-**Deliverables Completed:** Product requirements document; full technical specification; LangGraph workflow designs (IngestionGraph, BriefGraph, ChatGraph, SentimentGraph); PostgreSQL schema with pgvector and RLS; FastAPI API contracts; React component tree; Celery job definitions; Terraform module layout; CI/CD pipeline spec; **Terraform infrastructure — 8 modules + staging/production environments**; **Database schema — 12 ORM models + Alembic migration + HNSW index + RLS policies**; **FastAPI skeleton — auth middleware, tenant context, health endpoint**; **Company resolution + Watchlist CRUD — repositories, schemas, routers**; **EDGAR ingestion — IngestionGraph + EDGAR client + chunker + embeddings service**; **Financial API — Alpha Vantage client + snapshot repository + upsert**; **News ingestion — NewsAPI client + BedrockClient + SentimentGraph + sentiment repository**; **BriefGraph — 8-section analyst brief with parallel fan-out, pgvector RAG retrieval, BriefRepository, ChunkRepository**; **ChatGraph — multi-turn RAG chat with SSE streaming, chunk cache, rolling context summary, ChatRepository**; **Test suite — 360 tests passing**
+**Last Updated:** 2026-03-27 (updated after Step 11 + PR hardening fixes)  
+**Lifecycle:** Phase 1 (MVP) underway — Agent + core chat UI complete  
+**Overall Status:** ✅ Phase 0 complete; 🔧 Phase 1 MVP in progress (Steps 1–11 of 14 complete)
+**Deliverables Completed:** Product requirements document; full technical specification; LangGraph workflow designs (IngestionGraph, BriefGraph, ChatGraph, SentimentGraph); PostgreSQL schema with pgvector and RLS; FastAPI API contracts; React component tree; Celery job definitions; Terraform module layout; CI/CD pipeline spec; **Terraform infrastructure — 8 modules + staging/production environments**; **Database schema — 12 ORM models + Alembic migration + HNSW index + RLS policies**; **FastAPI skeleton — auth middleware, tenant context, health endpoint**; **Company resolution + Watchlist CRUD — repositories, schemas, routers**; **EDGAR ingestion — IngestionGraph + EDGAR client + chunker + embeddings service**; **Financial API — Alpha Vantage client + snapshot repository + upsert**; **News ingestion — NewsAPI client + BedrockClient + SentimentGraph + sentiment repository**; **BriefGraph — 8-section analyst brief with parallel fan-out, pgvector RAG retrieval, BriefRepository, ChunkRepository**; **ChatGraph — multi-turn RAG chat with SSE streaming, chunk cache, rolling context summary, ChatRepository**; **Step 11 React chat UI — ChatContainer + streaming message rendering + citation/follow-up components + Zustand store + SSE hook**; **Test suite — 360 backend tests passing**
 
 ---
 
@@ -28,7 +28,8 @@ The platform reduces per-company research time from hours to minutes, delivers c
 8. ~~**BriefGraph — all 8 sections with parallel fan-out**~~ ✅ Complete
 9. ~~**Brief API endpoint**~~ ✅ Complete (implemented as part of Step 8/10)
 10. ~~**ChatGraph + SSE streaming endpoint**~~ ✅ Complete
-11. **React `ChatContainer` + streaming UI** ← **next**
+11. ~~**React `ChatContainer` + streaming UI**~~ ✅ Complete
+12. **Dashboard endpoint + React `WatchlistGrid`** ← **next**
 
 ---
 
@@ -37,7 +38,7 @@ The platform reduces per-company research time from hours to minutes, delivers c
 | Phase | Scope | Status | Notes |
 |-------|-------|--------|-------|
 | Phase 0 — Planning & Alignment | PRD, technical specification, architectural direction | ✅ Complete | All planning documents authored; 14-step Phase 1 build order defined |
-| Phase 1 — MVP | Auth, watchlist, EDGAR ingestion, financial API, news, analyst briefs, chat, dashboard, infra | 🔧 In Progress | Steps 1–10 complete; full agent layer done; React UI is next |
+| Phase 1 — MVP | Auth, watchlist, EDGAR ingestion, financial API, news, analyst briefs, chat, dashboard, infra | 🔧 In Progress | Steps 1–11 complete; agent + core chat UI done; dashboard is next |
 | Phase 2 — Intelligence Expansion | Full news depth, sentiment enrichment, risk flag detection, document upload, competitor lookup | ⏳ Planned | — |
 | Phase 3 — SaaS Hardening | Tenant branding, alert notifications, admin panel, bulk import, brief export, usage tracking | ⏳ Planned | — |
 | Phase 4 — Scale & Polish | Earnings transcripts, watchlist sharing, scheduled briefs, comparison views, audit log, API access | ⏳ Planned | — |
@@ -58,12 +59,12 @@ The platform reduces per-company research time from hours to minutes, delivers c
 - [x] Step 8: `BriefGraph` — all 8 sections with parallel fan-out, pgvector RAG retrieval, BriefRepository, ChunkRepository (249 tests)
 - [x] Step 9: Brief API endpoint — `GET/POST /api/companies/{id}/brief`, `BriefSectionResponse`, `BriefGenerateResponse` (implemented alongside Step 8)
 - [x] Step 10: `ChatGraph` + SSE streaming endpoint — multi-turn RAG chat, chunk cache, rolling context summary, ChatRepository, 5 SSE event types (360 tests)
-- [ ] Step 11: React `ChatContainer` + streaming UI
+- [x] Step 11: React `ChatContainer` + streaming UI — session lifecycle, SSE token stream rendering, citations, follow-up chips, company context banner, stream-state UX hardening
 - [ ] Step 12: Dashboard endpoint + React `WatchlistGrid`
 - [ ] Step 13: `PeersChips` + competitor detection in chat
 - [ ] Step 14: CI/CD pipeline + staging deployment
 
-Steps 1–4 can be parallelized; Steps 5–10 are sequential; Steps 11–13 can be parallelized once APIs exist.
+Steps 1–4 can be parallelized; Steps 5–11 are sequential; Steps 12–13 can be parallelized once APIs exist.
 
 ---
 
@@ -202,6 +203,71 @@ data: {"type": "error",     "message": "An unexpected error occurred. Please try
 - **BriefGraph (Step 8):** ✅ `BriefGraph.ainvoke()` stores the brief via `BriefRepository`; the API layer reads it back via `get_brief_by_id()` with `selectinload(sections)`
 - **Chat (Step 10):** ✅ Brief sections' `suggested_followups` content is available to the chat UI as initial follow-up chips before the first message is sent
 - **Dashboard (Step 12):** `BriefRepository.list_for_user_company()` powers the per-company brief history view
+
+---
+
+## Step 11 Implementation Details — React ChatContainer + Streaming UI
+
+**Completed:** 2026-03-27
+**Test Coverage:** Backend remains 360 passing tests (frontend implementation is UI-layer integration for Step 11)
+**Files Created:** Frontend chat UI modules under `src/` (`components/chat/*`, `hooks/useSSE.ts`, `stores/chatStore.ts`, `lib/sse.ts`, `app/company/[id]/chat/page.tsx`)
+**Files Modified:** `src/components/chat/ChatContainer.tsx`, `src/components/chat/MessageList.tsx`, `src/components/chat/MessageBubble.tsx`, `src/hooks/useSSE.ts`, `src/stores/chatStore.ts`
+
+### Components
+
+1. **Chat container orchestration** (`src/components/chat/ChatContainer.tsx`)
+   - Session lifecycle management (`ensureSession`)
+   - User message dispatch + streaming initiation
+   - Follow-up chip selection as message seeds
+   - Company context injection via `CompanyContextBanner`
+
+2. **Streaming UI components** (`src/components/chat/`)
+   - `MessageList` — scrollable thread with auto-scroll and stable message keys
+   - `MessageBubble` — role-based rendering, inline citations, follow-up chips, streaming indicator
+   - `ChatInput` — message composer
+   - `InlineCitation` — source-link rendering
+   - `FollowUpChips` — quick follow-up suggestions
+   - `StreamingIndicator` — assistant streaming state
+   - `CompanyContextBanner` — active ticker/company context
+
+3. **SSE consumption hook** (`src/hooks/useSSE.ts`)
+   - Fetch-stream parser for `POST /api/chat/sessions/{id}/messages`
+   - Event handling: `token`, `citations`, `followups`, `done`, `error`
+   - Abort-safe cancellation for in-flight streams
+   - Failure paths now route through `failStream(errorText)` for user-visible error bubbles
+
+4. **Zustand store** (`src/stores/chatStore.ts`)
+   - Core actions: `addUserMessage`, `startAssistantStream`, `appendToken`, `addCitation`, `setFollowUps`, `finishStream`, `reset`
+   - Added failure action: `failStream(errorText)` to resolve empty placeholder assistant bubbles
+   - Added stable `id` field to `ChatMessage` for robust React keys
+
+### PR Hardening Fixes Applied
+
+- **Stale cross-company messages on navigation:** `ChatContainer` now resets store state when navigating to a company with no `initialSessionId`, preventing old-company message bleed.
+- **Empty assistant bubble on stream fetch failure:** `useSSE` now calls `failStream(errorText)` when response is non-OK/no-body or on non-abort stream errors.
+- **Array index key fragility in message list:** `ChatMessage` now includes stable generated `id`; `MessageList` renders with `key={message.id}`.
+- **Citation key stability:** citation rendering no longer relies on array index.
+
+### SSE UI Flow
+
+```
+ChatContainer.handleSend(message)
+  ├─ ensureSession()                           (create/reuse session)
+  ├─ addUserMessage(message)                   (optimistic user bubble)
+  └─ useSSE.sendMessage(message)
+       ├─ startAssistantStream()               (assistant placeholder)
+       ├─ token      → appendToken(...)
+       ├─ citations  → addCitation(...)
+       ├─ followups  → setFollowUps(...)
+       ├─ done       → finishStream()
+       └─ error      → failStream(errorText)
+```
+
+### Integration Points
+
+- **Step 10 backend stream contract:** fully consumed (`token`, `citations`, `followups`, `done`, `error`)
+- **Step 12 dashboard:** chat session metadata and summaries can now be linked to company cards for "continue chat" entry points
+- **Step 13 peers chips:** follow-up chip UI primitives are already in place and reusable for competitor-seeded prompts
 
 ---
 
@@ -380,6 +446,6 @@ BEDROCK_FOLLOWUP_MODEL_ID=anthropic.claude-3-haiku-20240307-v1:0
 - `docs/PRD-AIphaWatch-2026-03-25.md` — Product requirements document
 - `docs/AIphaWatch-TechnicalSpec.md` — Full technical specification
 - `docs/step7-summary.md` — Step 7 detailed implementation notes (SentimentGraph)
-- `developer/developer-journal.md` — Running log of all step completions
-- `AGENTS.md` — AI agent guidance, graph shapes, SSE event reference, API endpoint table
-- `README.md` — Project overview, architecture diagrams, getting started
+- `developer/developer-journal.md` — Running log of all step completions (including Step 11 UI + PR fixes)
+- `AGENTS.md` — AI agent guidance, graph shapes, SSE event reference, API endpoint table, Step 11 hardening notes
+- `README.md` — Project overview, architecture diagrams, getting started, Step 11 frontend implementation summary
