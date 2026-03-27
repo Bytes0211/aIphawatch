@@ -33,6 +33,7 @@ from langgraph.graph.state import CompiledStateGraph
 
 from alphawatch.agents.nodes.chat import (
     check_chunk_cache,
+    competitor_lookup,
     detect_intent,
     generate_followups,
     generate_response,
@@ -65,17 +66,39 @@ def _route_by_intent(state: ChatState) -> str:
     return "generate_response"
 
 
-def _route_by_cache(state: ChatState) -> str:
-    """Route after check_chunk_cache based on whether chunks were served.
+def _route_by_comparison(state: ChatState) -> str:
+    """Route after retrieve_chunks based on whether a comparison entity exists.
 
     Args:
-        state: Current chat state with cache_hit flag set by check_chunk_cache.
+        state: Current chat state with comparison_entity from detect_intent.
 
     Returns:
-        Next node name: 'retrieve_chunks' on cache miss,
-        'generate_response' on cache hit.
+        Next node: 'competitor_lookup' if comparison detected,
+        'generate_response' otherwise.
+    """
+    if state.get("comparison_entity"):
+        return "competitor_lookup"
+    return "generate_response"
+
+
+def _route_by_cache(state: ChatState) -> str:
+    """Route after check_chunk_cache based on cache hit and comparison intent.
+
+    On cache hit with a comparison entity, routes to competitor_lookup
+    so comparison turns always fetch fresh competitor data even when
+    source chunks are cached.
+
+    Args:
+        state: Current chat state with cache_hit and comparison_entity.
+
+    Returns:
+        Next node name: 'competitor_lookup' on cache hit + comparison,
+        'generate_response' on cache hit without comparison,
+        'retrieve_chunks' on cache miss.
     """
     if state.get("cache_hit", False):
+        if state.get("comparison_entity"):
+            return "competitor_lookup"
         return "generate_response"
     return "retrieve_chunks"
 
@@ -122,6 +145,7 @@ def build_chat_graph() -> CompiledStateGraph:
     graph.add_node("detect_intent", detect_intent)
     graph.add_node("check_chunk_cache", check_chunk_cache)
     graph.add_node("retrieve_chunks", retrieve_chunks)
+    graph.add_node("competitor_lookup", competitor_lookup)
     graph.add_node("generate_response", generate_response)
     graph.add_node("generate_followups", generate_followups)
     graph.add_node("persist_turn", persist_turn)
@@ -144,18 +168,29 @@ def build_chat_graph() -> CompiledStateGraph:
         },
     )
 
-    # --- check_chunk_cache → retrieve_chunks | generate_response ---
+    # --- check_chunk_cache → retrieve_chunks | competitor_lookup | generate_response ---
     graph.add_conditional_edges(
         "check_chunk_cache",
         _route_by_cache,
         {
             "retrieve_chunks": "retrieve_chunks",
+            "competitor_lookup": "competitor_lookup",
             "generate_response": "generate_response",
         },
     )
 
-    # --- retrieve_chunks → generate_response (always) ---
-    graph.add_edge("retrieve_chunks", "generate_response")
+    # --- retrieve_chunks → competitor_lookup | generate_response ---
+    graph.add_conditional_edges(
+        "retrieve_chunks",
+        _route_by_comparison,
+        {
+            "competitor_lookup": "competitor_lookup",
+            "generate_response": "generate_response",
+        },
+    )
+
+    # --- competitor_lookup → generate_response (always) ---
+    graph.add_edge("competitor_lookup", "generate_response")
 
     # --- Sequential tail ---
     graph.add_edge("generate_response", "generate_followups")

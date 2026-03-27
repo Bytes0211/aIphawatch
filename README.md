@@ -80,9 +80,11 @@ prepare_context          (loads ChatSession from DB; builds context window:
                           falls back to 'rag' on any error)
         ├─ (rag / comparison) → check_chunk_cache
         │       ├─ (cache hit,  >70% target) ──────────────────────→ generate_response
-        │       └─ (cache miss) → retrieve_chunks                  → generate_response
-        └─ (general) ──────────────────────────────────────────────→ generate_response
-    └─ generate_response     (Claude Sonnet — context window + chunks + question)
+        │       └─ (cache miss) → retrieve_chunks
+        │               ├─ (comparison) → competitor_lookup          → generate_response
+        │               └─ (no comparison)                          → generate_response
+        └─ (general) ──────────────────────────────────────────→ generate_response
+    └─ generate_response     (Claude Sonnet — context + chunks + competitor data + question)
         └─ generate_followups    (Claude Haiku — 3 follow-up chips)
             └─ persist_turn      (appends messages; merges new chunk IDs into cache)
                 └─ maybe_summarize   (Claude Haiku — triggers at >20 msgs)

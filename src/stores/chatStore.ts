@@ -47,8 +47,23 @@ interface ChatState {
    * or appends a new assistant error message if no placeholder exists.
    */
   failStream: (errorText: string) => void;
+  /**
+   * Populate messages from a fetched history (used when restoring a session).
+   * Maps MessageSchema objects from the backend into ChatMessage objects.
+   */
+  loadMessages: (history: BackendMessage[]) => void;
   /** Reset chat state for a new session. */
   reset: () => void;
+}
+
+/** Minimal shape of a message returned by GET /api/chat/sessions/{id}/messages. */
+export interface BackendMessage {
+  role: "user" | "assistant" | "system";
+  content: string;
+  citations: { chunk_id: string; source_url: string; title: string }[];
+  suggested_followups: string[];
+  turn_index: number;
+  created_at: string;
 }
 
 export const useChatStore = create<ChatState>((set) => ({
@@ -161,6 +176,20 @@ export const useChatStore = create<ChatState>((set) => ({
       }
 
       return { messages: msgs, isStreaming: false };
+    }),
+
+  loadMessages: (history) =>
+    set({
+      messages: history
+        .filter((m) => m.role !== "system")
+        .map((m) => ({
+          id: crypto.randomUUID(),
+          role: m.role as "user" | "assistant",
+          content: m.content,
+          citations: m.citations.map((c) => ({ ref: c.chunk_id, url: c.source_url })),
+          followUps: m.suggested_followups ?? [],
+          isStreaming: false,
+        })),
     }),
 
   reset: () =>

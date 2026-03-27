@@ -102,21 +102,20 @@ class DashboardRepository:
         for _entry, company in rows:
             companies[company.id] = company
         cids = list(companies.keys())
-        cid_strs = [str(c) for c in cids]
 
         # 2. Latest snapshots (batch)
-        snapshots = await self._batch_latest_snapshots(cid_strs)
+        snapshots = await self._batch_latest_snapshots(cids)
 
         # 3+4. Sentiment: current and prior window (batch)
-        sentiment_current = await self._batch_avg_sentiment(cid_strs, days)
+        sentiment_current = await self._batch_avg_sentiment(cids, days)
         sentiment_prior = await self._batch_avg_sentiment(
-            cid_strs, days * 2, offset_days=days
+            cids, days * 2, offset_days=days
         )
 
         # 5. Filings, risks, briefs (batch)
-        filings_map = await self._batch_new_filings(cid_strs, days)
-        risk_map = await self._batch_risk_summary(cid_strs)
-        brief_map = await self._batch_latest_briefs(cid_strs, str(user_id))
+        filings_map = await self._batch_new_filings(cids, days)
+        risk_map = await self._batch_risk_summary(cids)
+        brief_map = await self._batch_latest_briefs(cids, user_id)
 
         # Assemble cards
         sev_map = {4: "critical", 3: "high", 2: "medium", 1: "low"}
@@ -124,7 +123,7 @@ class DashboardRepository:
 
         for cid in cids:
             company = companies[cid]
-            cid_str = str(cid)
+            cid_str = str(cid)  # string key for result-map lookups only
 
             snap = snapshots.get(cid_str)
             price = float(snap["price"]) if snap and snap["price"] else None
@@ -181,7 +180,7 @@ class DashboardRepository:
     # ------------------------------------------------------------------
 
     async def _batch_latest_snapshots(
-        self, cid_strs: list[str]
+        self, cids: list[uuid.UUID]
     ) -> dict[str, dict[str, Any]]:
         """Batch-fetch the latest snapshot per company via window function."""
         sql = text(
@@ -193,7 +192,7 @@ class DashboardRepository:
             ORDER BY company_id, snapshot_date DESC
             """
         )
-        result = await self._session.execute(sql, {"cids": cid_strs})
+        result = await self._session.execute(sql, {"cids": cids})
         return {
             str(r.company_id): {
                 "price": r.price,
@@ -204,7 +203,7 @@ class DashboardRepository:
         }
 
     async def _batch_avg_sentiment(
-        self, cid_strs: list[str], days: int, offset_days: int = 0
+        self, cids: list[uuid.UUID], days: int, offset_days: int = 0
     ) -> dict[str, int]:
         """Batch-fetch average sentiment per company for a time window."""
         if offset_days:
@@ -219,7 +218,7 @@ class DashboardRepository:
                 """
             )
             result = await self._session.execute(
-                sql, {"cids": cid_strs, "days": days, "offset": offset_days}
+                sql, {"cids": cids, "days": days, "offset": offset_days}
             )
         else:
             sql = text(
@@ -232,12 +231,12 @@ class DashboardRepository:
                 """
             )
             result = await self._session.execute(
-                sql, {"cids": cid_strs, "days": days}
+                sql, {"cids": cids, "days": days}
             )
         return {str(r.company_id): r.avg_score for r in result.mappings()}
 
     async def _batch_new_filings(
-        self, cid_strs: list[str], days: int
+        self, cids: list[uuid.UUID], days: int
     ) -> dict[str, int]:
         """Batch-count new documents per company within the lookback window."""
         sql = text(
@@ -250,14 +249,21 @@ class DashboardRepository:
             """
         )
         result = await self._session.execute(
-            sql, {"cids": cid_strs, "days": days}
+            sql, {"cids": cids, "days": days}
         )
         return {str(r.company_id): r.cnt for r in result.mappings()}
 
     async def _batch_risk_summary(
-        self, cid_strs: list[str]
+        self, cids: list[uuid.UUID]
     ) -> dict[str, tuple[int, int | None]]:
-        """Batch-fetch risk flag count and max severity rank per company."""
+        """Batch-fetch risk flag count and max severity rank per company.
+
+        Returns **all-time** risk flags — there is no time-window filter here
+        because risk flags have no ``resolved_at`` column.  A flag detected six
+        months ago is still a live signal until the model grows a resolution
+        mechanism.  Callers should interpret the count as "total active flags"
+        rather than "flags this period".
+        """
         sql = text(
             """
             SELECT company_id,
@@ -274,14 +280,14 @@ class DashboardRepository:
             GROUP BY company_id
             """
         )
-        result = await self._session.execute(sql, {"cids": cid_strs})
+        result = await self._session.execute(sql, {"cids": cids})
         return {
             str(r.company_id): (r.cnt, r.max_sev_rank)
             for r in result.mappings()
         }
 
     async def _batch_latest_briefs(
-        self, cid_strs: list[str], user_id_str: str
+        self, cids: list[uuid.UUID], user_id: uuid.UUID
     ) -> dict[str, str]:
         """Batch-fetch latest brief ID per company for a user."""
         sql = text(
@@ -295,6 +301,6 @@ class DashboardRepository:
             """
         )
         result = await self._session.execute(
-            sql, {"cids": cid_strs, "uid": user_id_str}
+            sql, {"cids": cids, "uid": user_id}
         )
         return {str(r.company_id): str(r.brief_id) for r in result.mappings()}
