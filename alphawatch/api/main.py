@@ -7,7 +7,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from alphawatch.api.middleware import TenantMiddleware
-from alphawatch.api.routers import briefs, chat, companies, health, ingestion, watchlist
+from alphawatch.api.routers import briefs, chat, companies, dashboard, health, ingestion, watchlist
 from alphawatch.config import get_settings
 from alphawatch.redis import close_redis, init_redis
 
@@ -63,6 +63,7 @@ def create_app() -> FastAPI:
     app.include_router(ingestion.router)
     app.include_router(briefs.router)
     app.include_router(chat.router)
+    app.include_router(dashboard.router)
 
     logging.basicConfig(
         level=logging.DEBUG if settings.debug else logging.INFO,
