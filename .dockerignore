@@ -1,0 +1,16 @@
+.git
+.github
+.venv
+.next
+.pytest_cache
+node_modules
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+*.sqlite3
+.env
+.env.*
+coverage*
+htmlcov
+.vscode

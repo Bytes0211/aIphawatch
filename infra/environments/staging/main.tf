@@ -202,6 +202,26 @@ output "alb_dns_name" {
   value = module.ecs.alb_dns_name
 }
 
+output "ecs_cluster_name" {
+  value = module.ecs.cluster_name
+}
+
+output "ecs_api_service_name" {
+  value = module.ecs.api_service_name
+}
+
+output "ecs_worker_service_name" {
+  value = module.ecs.worker_service_name
+}
+
+output "frontend_bucket_id" {
+  value = module.s3.frontend_bucket_id
+}
+
+output "cloudfront_distribution_id" {
+  value = module.cloudfront.distribution_id
+}
+
 output "cloudfront_domain" {
   value = module.cloudfront.distribution_domain_name
 }

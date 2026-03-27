@@ -232,10 +232,48 @@ terraform apply
 
 ---
 
+## CI/CD (Step 14)
+
+GitHub Actions workflows are defined under `.github/workflows/`:
+
+- `ci.yml` — PR + main quality gates (pytest, mypy, ruff, frontend tests, TS typecheck)
+- `build-artifacts.yml` — reusable image build/push + frontend build artifact
+- `deploy-staging.yml` — main branch deploy to staging via Terraform + ECS stability waits + smoke tests
+- `release-prod.yml` — production release via tag/manual trigger (no approval gate for solo operation)
+
+### Required GitHub Repository Variables
+
+- `AWS_REGION` — AWS region (e.g. `us-east-1`)
+- `AWS_ROLE_ARN_STAGING` — OIDC-assumable role for staging deploy
+- `AWS_ROLE_ARN_PRODUCTION` — OIDC-assumable role for production deploy
+- `ECR_API_REPOSITORY` — ECR repo name for API image
+- `ECR_WORKER_REPOSITORY` — ECR repo name for worker image
+- `DEPLOY_FRONTEND_STATIC` — optional (`true`/`false`); static S3 sync only when enabled
+
+### Rollback Quick Commands
+
+```bash
+# 1) Re-run Terraform apply with previous known-good image tags
+cd infra/environments/staging
+terraform init
+terraform apply \
+    -var "api_image=<known-good-api-image-uri>" \
+    -var "worker_image=<known-good-worker-image-uri>"
+
+# 2) Wait for ECS services to stabilize
+aws ecs wait services-stable --cluster <cluster-name> --services <api-service-name>
+aws ecs wait services-stable --cluster <cluster-name> --services <worker-service-name>
+
+# 3) Verify health endpoint
+curl --fail http://<alb-dns-name>/health
+```
+
+---
+
 ## Testing
 
 ```bash
-# Backend tests (360 passing)
+# Backend tests
 uv run pytest tests/ -v
 
 # Backend with coverage
@@ -271,7 +309,8 @@ npx tsc --noEmit
 | `test_brief.py` | BriefState types, all nodes, BriefGraph, repositories | 71 |
 | `test_chat.py` | ChatState types, all nodes, routing, repository, schemas, API | 95 |
 | `test_briefs_api.py` | Brief API schemas and routing | 13 |
-| **Total** | | **360** |
+| `test_dashboard.py` | Dashboard schemas, routing, repository coverage | 26 |
+| **Total** | | **401** |
 
 ---
 
@@ -297,9 +336,9 @@ npx tsc --noEmit
 - [x] Step 9: Brief API endpoints + Pydantic schemas
 - [x] Step 10: `ChatGraph` + SSE streaming endpoint
 - [x] Step 11: React `ChatContainer` + streaming UI
-- [ ] Step 12: Dashboard endpoint + React `WatchlistGrid`
-- [ ] Step 13: `PeersChips` + competitor detection in chat
-- [ ] Step 14: CI/CD pipeline + staging deployment
+- [x] Step 12: Dashboard endpoint + React `WatchlistGrid`
+- [x] Step 13: `PeersChips` + competitor detection in chat
+- [x] Step 14: CI/CD pipeline + staging deployment
 
 ---
 

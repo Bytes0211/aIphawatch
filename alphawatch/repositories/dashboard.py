@@ -1,17 +1,12 @@
 """Dashboard repository — aggregates watchlist with financial, sentiment, and brief data."""
 
 import uuid
-from datetime import datetime, timezone
 from typing import Any
 
-from sqlalchemy import func, select, text
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from alphawatch.models.brief import AnalystBrief
 from alphawatch.models.company import Company
-from alphawatch.models.document import Document
-from alphawatch.models.financial import FinancialSnapshot
-from alphawatch.models.risk import RiskFlag
 from alphawatch.models.watchlist import WatchlistEntry
 from alphawatch.schemas.dashboard import CompanyCard
 

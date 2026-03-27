@@ -1,6 +1,5 @@
 """Ingestion trigger endpoint (admin-only)."""
 
-import uuid
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel

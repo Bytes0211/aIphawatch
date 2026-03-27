@@ -6,8 +6,6 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
-logger = logging.getLogger(__name__)
-
 from alphawatch.api.dependencies import get_current_user, get_db
 from alphawatch.repositories.briefs import BriefRepository
 from alphawatch.repositories.companies import CompanyRepository
@@ -19,6 +17,8 @@ from alphawatch.schemas.brief import (
     BriefSectionResponse,
     BriefSummaryResponse,
 )
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/companies", tags=["briefs"])
 
