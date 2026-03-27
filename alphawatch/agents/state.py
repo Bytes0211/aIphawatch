@@ -138,3 +138,96 @@ class SentimentState(BaseState, total=False):
     parsed_documents: list[ParsedDoc]
     sentiment_scores: list[tuple[str, int]]
     scores_stored: int
+
+
+@dataclass
+class ChunkResult:
+    """A retrieved document chunk with similarity score.
+
+    Attributes:
+        chunk_id: UUID string of the DocumentChunk.
+        document_id: UUID string of the parent Document.
+        content: Chunk text content.
+        similarity: Cosine similarity score (0.0–1.0).
+        source_type: Filing type (edgar_10k, edgar_10q, etc.).
+        source_url: Original filing URL.
+        title: Parent document title.
+        metadata: Additional chunk metadata.
+    """
+
+    chunk_id: str
+    document_id: str
+    content: str
+    similarity: float
+    source_type: str
+    source_url: str
+    title: str
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class RiskFlagItem:
+    """A single identified risk flag for inclusion in a brief.
+
+    Attributes:
+        severity: One of 'high', 'medium', 'low'.
+        category: Risk category (e.g. 'regulatory', 'financial', 'operational').
+        description: Concise description of the risk.
+        source_chunk_ids: Chunk IDs that support this flag.
+    """
+
+    severity: str
+    category: str
+    description: str
+    source_chunk_ids: list[str] = field(default_factory=list)
+
+
+@dataclass
+class BriefSectionData:
+    """Structured output from a single brief section node.
+
+    Attributes:
+        section_type: One of snapshot, what_changed, risk_flags, sentiment,
+            sources, executive_summary, suggested_followups.
+        section_order: Display ordering integer (1-based).
+        content: JSONB-serialisable section payload.
+    """
+
+    section_type: str
+    section_order: int
+    content: dict[str, Any]
+
+
+class BriefState(BaseState, total=False):
+    """State for the BriefGraph workflow.
+
+    Attributes:
+        user_id: User UUID string (required — briefs are user-scoped).
+        company_name: Full company name for LLM context.
+        force_regenerate: When True, bypass existing brief cache.
+        query_text: Optional explicit query to seed chunk retrieval.
+        retrieved_chunks: Top-k chunks from pgvector similarity search.
+        snapshot_section: Built financial snapshot section data.
+        what_changed_section: Built what-changed section data.
+        risk_flags_section: Built risk flags section data.
+        sentiment_section: Built sentiment section data.
+        sources_section: Built sources section data.
+        executive_summary_section: Built executive summary section data.
+        suggested_followups_section: Built suggested follow-ups section data.
+        sections: All assembled BriefSectionData objects (populated by fan-in).
+        brief_id: UUID string of the persisted AnalystBrief record.
+    """
+
+    company_name: str
+    force_regenerate: bool
+    query_text: str
+    retrieved_chunks: list[ChunkResult]
+    snapshot_section: BriefSectionData
+    what_changed_section: BriefSectionData
+    risk_flags_section: BriefSectionData
+    sentiment_section: BriefSectionData
+    sources_section: BriefSectionData
+    executive_summary_section: BriefSectionData
+    suggested_followups_section: BriefSectionData
+    sections: list[BriefSectionData]
+    brief_id: str

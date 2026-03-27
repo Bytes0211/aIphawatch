@@ -3,8 +3,8 @@
 **Version:** 1.0  
 **Last Updated:** 2026-03-26  
 **Lifecycle:** Phase 1 (MVP) underway — Data ingestion complete  
-**Overall Status:** ✅ Phase 0 complete; 🔧 Phase 1 MVP in progress (Steps 1–7 of 14 complete)  
-**Deliverables Completed:** Product requirements document; full technical specification; LangGraph workflow designs (IngestionGraph, BriefGraph, ChatGraph, SentimentGraph); PostgreSQL schema with pgvector and RLS; FastAPI API contracts; React component tree; Celery job definitions; Terraform module layout; CI/CD pipeline spec; **Terraform infrastructure — 8 modules + staging/production environments**; **Database schema — 12 ORM models + Alembic migration + HNSW index + RLS policies**; **FastAPI skeleton — auth middleware, tenant context, health endpoint**; **Company resolution + Watchlist CRUD — repositories, schemas, routers**; **EDGAR ingestion — IngestionGraph + EDGAR client + chunker + embeddings service**; **Financial API — Alpha Vantage client + snapshot repository + upsert**; **News ingestion — NewsAPI client + BedrockClient + SentimentGraph + sentiment repository**; **Test suite — 178 tests passing**
+**Overall Status:** ✅ Phase 0 complete; 🔧 Phase 1 MVP in progress (Steps 1–8 of 14 complete)
+**Deliverables Completed:** Product requirements document; full technical specification; LangGraph workflow designs (IngestionGraph, BriefGraph, ChatGraph, SentimentGraph); PostgreSQL schema with pgvector and RLS; FastAPI API contracts; React component tree; Celery job definitions; Terraform module layout; CI/CD pipeline spec; **Terraform infrastructure — 8 modules + staging/production environments**; **Database schema — 12 ORM models + Alembic migration + HNSW index + RLS policies**; **FastAPI skeleton — auth middleware, tenant context, health endpoint**; **Company resolution + Watchlist CRUD — repositories, schemas, routers**; **EDGAR ingestion — IngestionGraph + EDGAR client + chunker + embeddings service**; **Financial API — Alpha Vantage client + snapshot repository + upsert**; **News ingestion — NewsAPI client + BedrockClient + SentimentGraph + sentiment repository**; **BriefGraph — 8-section analyst brief with parallel fan-out, pgvector RAG retrieval, BriefRepository, ChunkRepository**; **Test suite — 249 tests passing**
 
 ---
 
@@ -25,7 +25,8 @@ The platform reduces per-company research time from hours to minutes, delivers c
 5. ~~**EDGAR ingestion service + IngestionGraph**~~ ✅ Complete
 6. ~~**Financial API ingestion + FinancialSnapshot storage**~~ ✅ Complete
 7. ~~**Lightweight news ingestion + SentimentGraph**~~ ✅ Complete
-8. **BriefGraph — all 8 sections with parallel fan-out** ← **next**
+8. ~~**BriefGraph — all 8 sections with parallel fan-out**~~ ✅ Complete
+9. **Brief API endpoint + React `BriefViewer`** ← **next**
 
 ---
 
@@ -34,7 +35,7 @@ The platform reduces per-company research time from hours to minutes, delivers c
 | Phase | Scope | Status | Notes |
 |-------|-------|--------|-------|
 | Phase 0 — Planning & Alignment | PRD, technical specification, architectural direction | ✅ Complete | All planning documents authored; 14-step Phase 1 build order defined |
-| Phase 1 — MVP | Auth, watchlist, EDGAR ingestion, financial API, news, analyst briefs, chat, dashboard, infra | 🔧 In Progress | Steps 1–7 complete; data ingestion pipeline complete; BriefGraph implementation is next |
+| Phase 1 — MVP | Auth, watchlist, EDGAR ingestion, financial API, news, analyst briefs, chat, dashboard, infra | 🔧 In Progress | Steps 1–8 complete; BriefGraph implemented; Brief API + React BriefViewer is next |
 | Phase 2 — Intelligence Expansion | Full news depth, sentiment enrichment, risk flag detection, document upload, competitor lookup | ⏳ Planned | — |
 | Phase 3 — SaaS Hardening | Tenant branding, alert notifications, admin panel, bulk import, brief export, usage tracking | ⏳ Planned | — |
 | Phase 4 — Scale & Polish | Earnings transcripts, watchlist sharing, scheduled briefs, comparison views, audit log, API access | ⏳ Planned | — |
@@ -52,7 +53,7 @@ The platform reduces per-company research time from hours to minutes, delivers c
 - [x] Step 5: EDGAR ingestion — IngestionGraph, EDGAR client, chunker, embeddings, admin trigger (113 tests)
 - [x] Step 6: Financial API — Alpha Vantage client, snapshot repository, upsert, safe parsing (142 tests)
 - [x] Step 7: Lightweight news ingestion + `SentimentGraph` — NewsAPI client, BedrockClient, sentiment repository (178 tests)
-- [ ] Step 8: `BriefGraph` — all 8 sections with parallel fan-out
+- [x] Step 8: `BriefGraph` — all 8 sections with parallel fan-out, pgvector RAG retrieval, BriefRepository, ChunkRepository (249 tests)
 - [ ] Step 9: Brief API endpoint + React `BriefViewer`
 - [ ] Step 10: `ChatGraph` + SSE streaming endpoint
 - [ ] Step 11: React `ChatContainer` + streaming UI
@@ -61,6 +62,80 @@ The platform reduces per-company research time from hours to minutes, delivers c
 - [ ] Step 14: CI/CD pipeline + staging deployment
 
 Steps 1–4 can be parallelized; Steps 5–8 are sequential; Steps 9–13 can be parallelized once APIs exist.
+
+---
+
+## Step 8 Implementation Details — BriefGraph
+
+**Completed:** 2026-03-26
+**Test Coverage:** 71 new tests (249 total)
+**Files Created:** 5 (`agents/nodes/brief.py`, `agents/graphs/brief.py`, `repositories/briefs.py`, `repositories/chunks.py`, `tests/test_brief.py`)
+**Files Modified:** 4 (`agents/state.py`, `agents/graphs/__init__.py`, `repositories/__init__.py`, `README.md`)
+
+### Components
+
+1. **BriefGraph** (`agents/graphs/brief.py`) — LangGraph workflow with fan-out/fan-in
+   - Entry: `retrieve_chunks` (pgvector similarity search)
+   - Fan-out via `Send` to 5 parallel section builders
+   - Fan-in: `assemble_sections` → `build_executive_summary` → `build_suggested_followups` → `store_brief` → `handle_errors`
+   - 11 nodes total; compiled with `StateGraph(BriefState)`
+
+2. **BriefGraph nodes** (`agents/nodes/brief.py`) — 11 node functions
+   - `retrieve_chunks` — embeds broad company query via Titan Embeddings v2; top-8 EDGAR chunks from pgvector HNSW index
+   - `build_snapshot` — purely data-driven; reads latest `FinancialSnapshot`, no LLM
+   - `build_what_changed` — diffs two most recent snapshots; 0.5% threshold; no LLM (eliminates hallucination risk)
+   - `build_risk_flags` — LLM (Claude Sonnet) identifies up to 5 risk flags; sorts by severity; maps chunk indices → chunk IDs
+   - `build_sentiment` — reads pre-computed `SentimentRecord` aggregates; overall + by-source + 30-day trend
+   - `build_sources` — deduplicates retrieved chunks by document_id; purely data-driven
+   - `assemble_sections` — fan-in node; collects all 5 parallel sections into ordered list
+   - `build_executive_summary` — runs last; synthesises from assembled sections + chunks; cited chunk IDs validated against known list (hallucination guard)
+   - `build_suggested_followups` — Claude Haiku generates 4 contextual follow-up questions for UI chips
+   - `store_brief` — persists `AnalystBrief` + all sections via `BriefRepository.bulk_create_sections()`
+   - `handle_errors` — terminal node; logs accumulated errors
+
+3. **BriefRepository** (`repositories/briefs.py`) — data access for briefs and sections
+   - `create_brief()`, `bulk_create_sections()`, `get_latest_for_user_company()`
+   - `get_brief_by_id()`, `list_for_user_company()`, `get_section()` (by type)
+   - `sections` eager-loaded via `selectinload` on get queries
+
+4. **ChunkRepository** (`repositories/chunks.py`) — pgvector similarity search
+   - `similarity_search()` — cosine distance (`<=>`) on HNSW index; restricted by `company_id`; optional source-type filter
+   - `get_chunks_by_ids()` — bulk hydration for chat chunk cache (Step 10)
+   - `count_chunks_for_company()` — pre-flight check before BriefGraph invocation
+
+5. **New state types** (`agents/state.py`)
+   - `ChunkResult` — retrieved chunk with similarity score, source metadata
+   - `RiskFlagItem` — severity, category, description, source_chunk_ids
+   - `BriefSectionData` — section_type, section_order, JSONB content
+   - `BriefState` — extends `BaseState`; all section fields + retrieved_chunks + brief_id
+
+### Key Design Decisions
+
+- **Fan-out is real parallelism:** 5 section builders dispatch via `Send` after `retrieve_chunks`. LangGraph runs them concurrently; wall-clock time for the parallel phase is bounded by the slowest single node (~2s for risk_flags LLM call), not the sum.
+- **Executive summary runs last:** Cannot hallucinate a fact not present in the section data passed to it. Cited chunk IDs are validated post-generation against the actual retrieved set.
+- **"What Changed" is purely data-driven:** 0.5% threshold on snapshot diffs + analyst rating comparison. Zero LLM calls. Eliminates hallucination in the highest-signal brief section.
+- **Sentiment consumed, not recomputed:** `build_sentiment` reads pre-scored `SentimentRecord` rows written by `SentimentGraph`. No re-scoring at brief generation time; avoids double Bedrock costs.
+- **All imports at module level:** Moved from lazy function-body imports to module-level to enable clean `patch()` mocking in tests without `create=True`.
+- **Graceful degradation:** Every node catches exceptions, appends to `errors`, and returns a fallback section rather than aborting the pipeline. A brief with a missing section is better than no brief.
+- **`build_suggested_followups` uses Haiku:** Follow-up questions are low-stakes (UI chips); Claude Haiku is sufficient and costs ~10× less than Sonnet.
+
+### Section Ordering
+
+| # | Section Type | LLM? | Data Source |
+|---|---|---|---|
+| 1 | `snapshot` | ❌ | `FinancialSnapshot` (latest) |
+| 2 | `what_changed` | ❌ | `FinancialSnapshot` diff |
+| 3 | `risk_flags` | ✅ Sonnet | Retrieved EDGAR chunks |
+| 4 | `sentiment` | ❌ | `SentimentRecord` aggregates |
+| 5 | `sources` | ❌ | Retrieved chunks (dedup) |
+| 6 | `executive_summary` | ✅ Sonnet | Sections + chunks |
+| 7 | `suggested_followups` | ✅ Haiku | Summary + risk flags |
+
+### Integration Points
+
+- **Brief API (Step 9):** `build_brief_graph().ainvoke(BriefState(...))` returns `brief_id`; API endpoint fetches via `BriefRepository.get_brief_by_id()`
+- **Chat (Step 10):** `ChunkRepository.get_chunks_by_ids()` hydrates the chat chunk cache from `retrieved_chunk_ids` stored in `ChatSession`
+- **Dashboard (Step 12):** `BriefRepository.get_latest_for_user_company()` surfaces most recent brief metadata per watchlist entry
 
 ---
 
