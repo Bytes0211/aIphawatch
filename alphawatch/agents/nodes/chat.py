@@ -621,14 +621,18 @@ async def generate_response(state: ChatState) -> dict[str, Any]:
     competitor_block = ""
     if competitor_data and competitor_data.get("available"):
         comp = competitor_data
+
+        def _display(value: Any) -> Any:
+            return value if value is not None else "N/A"
+
         competitor_block = (
             f"\n=== COMPETITOR DATA: {comp.get('ticker', '')} ({comp.get('name', '')}) ===\n"
-            f"Price: ${comp.get('price', 'N/A')}, "
-            f"Change: {comp.get('price_change_pct', 'N/A')}%, "
-            f"Market Cap: {comp.get('market_cap', 'N/A')}, "
-            f"P/E: {comp.get('pe_ratio', 'N/A')}, "
-            f"D/E: {comp.get('debt_to_equity', 'N/A')}, "
-            f"Rating: {comp.get('analyst_rating', 'N/A')}\n"
+            f"Price: ${_display(comp.get('price'))}, "
+            f"Change: {_display(comp.get('price_change_pct'))}%, "
+            f"Market Cap: {_display(comp.get('market_cap'))}, "
+            f"P/E: {_display(comp.get('pe_ratio'))}, "
+            f"D/E: {_display(comp.get('debt_to_equity'))}, "
+            f"Rating: {_display(comp.get('analyst_rating'))}\n"
         )
 
     system_prompt = (

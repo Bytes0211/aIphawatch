@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { ChatContainer } from "@/components/chat/ChatContainer";
 import { PeersChips } from "@/components/shared/PeersChips";
 import { apiGet } from "@/lib/api";
@@ -21,7 +21,7 @@ const DEFAULT_PEERS = ["MSFT", "GOOG", "AMZN"];
 
 export default function ChatPage({ params }: ChatPageProps) {
   const [company, setCompany] = useState<CompanyInfo | null>(null);
-  const seedRef = useRef<string | null>(null);
+  const [seedPrompt, setSeedPrompt] = useState<string | null>(null);
 
   // Fetch company info to get the real ticker
   useEffect(() => {
@@ -31,10 +31,7 @@ export default function ChatPage({ params }: ChatPageProps) {
   }, [params.id]);
 
   const handleCompare = (prompt: string) => {
-    // Set seed prompt — ChatContainer will pick it up and send it
-    seedRef.current = prompt;
-    // Force re-render so ChatContainer sees the new seedPrompt
-    setCompany((c) => (c ? { ...c } : c));
+    setSeedPrompt(prompt);
   };
 
   const ticker = company?.ticker ?? params.id;
@@ -50,7 +47,7 @@ export default function ChatPage({ params }: ChatPageProps) {
         companyId={params.id}
         ticker={ticker}
         companyName={company?.name}
-        seedPrompt={seedRef.current}
+        seedPrompt={seedPrompt}
       />
     </div>
   );

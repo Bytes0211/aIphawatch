@@ -73,7 +73,7 @@ export function ChatContainer({
       console.error("Failed to create chat session:", err);
       return null;
     }
-  }, [sessionId, companyId, setSession]);
+  }, [sessionId, companyId, ticker, setSession]);
 
   // Send a message (creates session if needed)
   const handleSend = useCallback(
