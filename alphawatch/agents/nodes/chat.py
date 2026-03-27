@@ -357,7 +357,6 @@ async def check_chunk_cache(state: ChatState) -> dict[str, Any]:
         Partial state update with retrieved_chunks and cache_hit flag.
     """
     cached_ids = state.get("retrieved_chunk_ids", [])
-    company_id = uuid.UUID(state["company_id"])
     errors = list(state.get("errors", []))
 
     if not cached_ids:
