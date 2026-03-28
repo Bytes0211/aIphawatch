@@ -16,9 +16,11 @@ resource "aws_db_parameter_group" "postgres16" {
   name   = "${var.project}-${var.environment}-pg16"
   family = "postgres16"
 
+  # Note: pgvector is installed via CREATE EXTENSION, not shared_preload_libraries.
+  # shared_preload_libraries is reserved for pg_stat_statements, pg_cron, etc.
   parameter {
     name         = "shared_preload_libraries"
-    value        = "pgvector"
+    value        = "pg_stat_statements"
     apply_method = "pending-reboot"
   }
 

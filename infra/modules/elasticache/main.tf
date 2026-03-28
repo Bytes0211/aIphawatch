@@ -4,11 +4,11 @@
 ###############################################################################
 
 resource "aws_elasticache_subnet_group" "main" {
-  name       = "${var.project}-${var.environment}-redis-subnet"
+  name       = "${var.project}-${var.environment}-${var.purpose}-redis-subnet"
   subnet_ids = var.private_subnet_ids
 
   tags = merge(var.tags, {
-    Name = "${var.project}-${var.environment}-redis-subnet"
+    Name = "${var.project}-${var.environment}-${var.purpose}-redis-subnet"
   })
 }
 
