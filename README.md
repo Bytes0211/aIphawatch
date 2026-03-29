@@ -368,7 +368,7 @@ npx tsc --noEmit
 ### Phase 2 Build Order
 
 - [ ] Step 1: Platform hardening baseline — IAM least-privilege cleanup, reproducible build locks, deployment guardrails
-- [ ] Step 2: Financial provider abstraction rollout — wire provider factory through ingestion paths and config-driven selection
+- [ ] Step 2: Runtime foundations rollout — provider factory wiring, config-driven selection, and chat summarization off the hot path
 - [ ] Step 3: Full news ingestion depth — multi-source adapters, stronger deduplication, per-source quotas
 - [ ] Step 4: Sentiment enrichment v2 — entity/aspect tagging, confidence scoring, trend normalization
 - [ ] Step 5: Risk flag pipeline v2 — richer categories, deterministic severity calibration, persistence upgrades

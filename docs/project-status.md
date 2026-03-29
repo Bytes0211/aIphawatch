@@ -66,7 +66,7 @@ Steps 1–4 can be parallelized; Steps 5–11 are sequential; Steps 12–13 can 
 **Goal:** Expand AIphaWatch from MVP to analyst-grade intelligence depth with source diversity, stronger retrieval quality, and production reliability.
 
 - [ ] Step 1: Platform hardening baseline — IAM least-privilege cleanup, reproducible dependency locks, deployment guardrails
-- [ ] Step 2: Financial provider abstraction rollout — provider factory integration across ingestion and config-driven provider selection
+- [ ] Step 2: Runtime foundations rollout — provider factory integration, config-driven selection, and chat summarization off the hot path
 - [ ] Step 3: Full news ingestion depth — multi-source connectors, source-aware deduplication, and quota controls
 - [ ] Step 4: Sentiment enrichment v2 — entity/aspect tagging, confidence-scored outputs, and normalized trends
 - [ ] Step 5: Risk flag pipeline v2 — expanded taxonomy, deterministic severity calibration, and persistence updates
