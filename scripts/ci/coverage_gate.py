@@ -35,10 +35,15 @@ def main() -> int:
         print(f"Coverage report not found: {report_path}")
         return 2
 
-    report = json.loads(report_path.read_text(encoding="utf-8"))
+    try:
+        report = json.loads(report_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        print(f"Coverage report is not valid JSON: {exc}")
+        return 2
+
     files = report.get("files", {})
     if not isinstance(files, dict):
-        print("Invalid coverage JSON: 'files' field missing")
+        print("Invalid coverage JSON: 'files' field is missing or not an object")
         return 2
 
     failures: list[str] = []
