@@ -1,7 +1,8 @@
 # AIphaWatch
 
-![Phase 1](https://img.shields.io/badge/phase-1%20MVP-blue?style=flat-square)
-![Status](https://img.shields.io/badge/status-in%20progress-yellow?style=flat-square)
+![Phase 1](https://img.shields.io/badge/phase-1%20MVP-complete-brightgreen?style=flat-square)
+![Phase 2](https://img.shields.io/badge/phase-2%20intelligence-kickoff-blue?style=flat-square)
+![Status](https://img.shields.io/badge/status-execution%20planning-yellow?style=flat-square)
 ![Python](https://img.shields.io/badge/python-3.12%2B-3776AB?style=flat-square&logo=python&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.100%2B-009688?style=flat-square&logo=fastapi&logoColor=white)
 ![React](https://img.shields.io/badge/React-18-61DAFB?style=flat-square&logo=react&logoColor=black)
@@ -147,11 +148,6 @@ fetch_filings → parse_documents → chunk_documents → embed_chunks → store
 | `DELETE` | `/api/chat/sessions/{session_id}` | Delete session (ownership-enforced, 204) | analyst |
 | `GET` | `/api/chat/sessions/{session_id}/messages` | Get full message history | analyst |
 | `POST` | `/api/chat/sessions/{session_id}/messages` | Send message — returns SSE stream | analyst |
-
-### Planned
-
-| Method | Path | Description | Auth |
-|---|---|---|---|
 | `GET` | `/api/dashboard` | Watchlist digest sorted by most changed | analyst |
 
 ### Step 11 Frontend Streaming UI (Implemented)
@@ -185,14 +181,43 @@ PR hardening fixes included in Step 11:
 - Python 3.12+
 - [uv](https://github.com/astral-sh/uv) (recommended for environment management)
 - Node.js 20+
+- Docker Engine + Docker Compose plugin
 - AWS CLI configured with appropriate credentials
 - Terraform 1.6+
+
+### Local Infrastructure (Required)
+
+Start PostgreSQL (with pgvector) and Redis:
+
+```bash
+docker compose up -d postgres redis
+```
+
+Validate both are healthy:
+
+```bash
+docker compose ps
+```
+
+The local compose defaults match application defaults in `alphawatch/config.py`:
+
+- Postgres: `localhost:5432`, database `alphawatch`, user `alphawatch`
+- Redis: `localhost:6379`
+
+Stop services when done:
+
+```bash
+docker compose down
+```
 
 ### Backend
 
 ```bash
 # Install dependencies
 uv sync
+
+# Run database migrations
+uv run alembic upgrade head
 
 # Run the API server
 uv run uvicorn alphawatch.api.main:app --reload
@@ -318,8 +343,8 @@ npx tsc --noEmit
 
 | Phase | Status | Description |
 |---|---|---|
-| Phase 1 — MVP | 🔧 In Progress | Auth, watchlist, EDGAR ingestion, financial API, news, briefs, chat, dashboard, infra |
-| Phase 2 — Intelligence | ⏳ Planned | Full news depth, sentiment enrichment, risk flags, document upload, competitor lookup |
+| Phase 1 — MVP | ✅ Complete | Auth, watchlist, EDGAR ingestion, financial API, news, briefs, chat, dashboard, infra |
+| Phase 2 — Intelligence | 🔧 In Progress | Full news depth, sentiment enrichment, risk flags, document upload, comparative intelligence |
 | Phase 3 — SaaS Hardening | ⏳ Planned | Tenant branding, alerts, admin panel, bulk import, brief export, usage tracking |
 | Phase 4 — Scale & Polish | ⏳ Planned | Earnings transcripts, watchlist sharing, scheduled briefs, comparison views, audit log |
 
@@ -340,6 +365,21 @@ npx tsc --noEmit
 - [x] Step 13: `PeersChips` + competitor detection in chat
 - [x] Step 14: CI/CD pipeline + staging deployment
 
+### Phase 2 Build Order
+
+- [ ] Step 1: Platform hardening baseline — IAM least-privilege cleanup, reproducible build locks, deployment guardrails
+- [ ] Step 2: Financial provider abstraction rollout — wire provider factory through ingestion paths and config-driven selection
+- [ ] Step 3: Full news ingestion depth — multi-source adapters, stronger deduplication, per-source quotas
+- [ ] Step 4: Sentiment enrichment v2 — entity/aspect tagging, confidence scoring, trend normalization
+- [ ] Step 5: Risk flag pipeline v2 — richer categories, deterministic severity calibration, persistence upgrades
+- [ ] Step 6: Document upload ingestion — tenant-scoped upload API, parser/chunker/embed/store workflow
+- [ ] Step 7: Hybrid retrieval policy — blend EDGAR and uploaded sources with source weighting and controls
+- [ ] Step 8: Comparative intelligence expansion — competitor benchmark cards and comparison-aware prompt routing
+- [ ] Step 9: Brief delta intelligence — cross-brief section diffs and "what materially changed" attribution
+- [ ] Step 10: Alerts and delivery channels — threshold/rule engine plus email/slack delivery
+- [ ] Step 11: Evaluation harness and quality gates — golden datasets, response scoring, regression checks in CI
+- [ ] Step 12: Phase 2 release hardening — staging soak, runbooks, rollback drills, production cutover
+
 ---
 
 ## Documentation
@@ -349,6 +389,8 @@ npx tsc --noEmit
 - [`docs/project-status.md`](docs/project-status.md) — Detailed phase and step tracking
 - [`AGENTS.md`](AGENTS.md) — AI agent guidance, graph shapes, and architecture reference
 - [`developer/developer-journal.md`](developer/developer-journal.md) — Development log
+- [`github/ISSUES/phase-2-intelligence.md`](github/ISSUES/phase-2-intelligence.md) — Phase 2 epic + issue breakdown
+- [`github/PROJECTS/phase-2-intelligence.md`](github/PROJECTS/phase-2-intelligence.md) — Phase 2 project board template
 
 ---
 

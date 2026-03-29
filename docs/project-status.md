@@ -1,9 +1,9 @@
 # AIphaWatch — Project Status
 
 **Version:** 1.0  
-**Last Updated:** 2026-03-27  
-**Lifecycle:** Phase 1 (MVP) underway — Dashboard complete  
-**Overall Status:** ✅ Phase 0 complete; ✅ Phase 1 MVP complete (Steps 1–14 of 14 complete)
+**Last Updated:** 2026-03-28  
+**Lifecycle:** Phase 1 (MVP) complete; Phase 2 execution kickoff in progress  
+**Overall Status:** ✅ Phase 0 complete; ✅ Phase 1 MVP complete (Steps 1–14 of 14 complete); 🔧 Phase 2 step planning and issue breakdown complete
 **Deliverables Completed:** Product requirements document; full technical specification; LangGraph workflow designs (IngestionGraph, BriefGraph, ChatGraph, SentimentGraph); PostgreSQL schema with pgvector and RLS; FastAPI API contracts; React component tree; Celery job definitions; Terraform module layout; CI/CD pipeline spec; **Terraform infrastructure — 8 modules + staging/production environments**; **Database schema — 12 ORM models + Alembic migration + HNSW index + RLS policies**; **FastAPI skeleton — auth middleware, tenant context, health endpoint**; **Company resolution + Watchlist CRUD — repositories, schemas, routers**; **EDGAR ingestion — IngestionGraph + EDGAR client + chunker + embeddings service**; **Financial API — Alpha Vantage client + snapshot repository + upsert**; **News ingestion — NewsAPI client + BedrockClient + SentimentGraph + sentiment repository**; **BriefGraph — 8-section analyst brief with parallel fan-out, pgvector RAG retrieval, BriefRepository, ChunkRepository**; **ChatGraph — multi-turn RAG chat with SSE streaming, chunk cache, rolling context summary, ChatRepository**; **Step 11 React chat UI — ChatContainer + streaming message rendering + citation/follow-up components + Zustand store + SSE hook**; **Dashboard — change_score-sorted watchlist digest + React WatchlistGrid**; **PeersChips + competitor detection — competitor_lookup node, PeersChips React component**; **Step 14 CI/CD — GitHub Actions CI, reusable artifact build, staging deploy workflow, production release workflow, ECS rollout + smoke checks**; **Test suite — 401 backend tests passing**
 
 ---
@@ -12,26 +12,17 @@
 
 AIphaWatch gives buy-side analysts a single dashboard that answers: "What changed across my companies, and what does it mean?" Every Monday morning, Sarah opens the platform, sees a prioritized digest of her 12 watched companies — new SEC filings, price moves, sentiment shifts, risk flags — and drills into any company for a structured analyst brief with citations she can trust enough to act on. When the brief raises questions, she switches to a conversational chat interface grounded in the same source data to dig deeper.
 
-The platform reduces per-company research time from hours to minutes, delivers citation-backed briefs where every claim links to a real source, and provides a professional-grade chat experience that remembers context across follow-up questions. Phase 1 (MVP) is underway — the goal is a demo-ready product where Sarah can watch companies, read briefs, and chat with the data.
+The platform reduces per-company research time from hours to minutes, delivers citation-backed briefs where every claim links to a real source, and provides a professional-grade chat experience that remembers context across follow-up questions. Phase 1 (MVP) is complete and demo-ready; current work is focused on Phase 2 intelligence expansion and operational hardening.
 
 ---
 
 ## Current Focus
 
-1. ~~**Terraform infrastructure scaffolding** — VPC, RDS, ElastiCache, Cognito, ECS, S3, CloudFront, Secrets Manager~~ ✅ Complete
-2. ~~**Database schema deployment** — all 12 tables, HNSW vector index, RLS policies~~ ✅ Complete
-3. ~~**FastAPI skeleton** — Cognito JWT middleware, tenant context injection, health endpoint~~ ✅ Complete
-4. ~~**Company resolution + Watchlist CRUD endpoints**~~ ✅ Complete
-5. ~~**EDGAR ingestion service + IngestionGraph**~~ ✅ Complete
-6. ~~**Financial API ingestion + FinancialSnapshot storage**~~ ✅ Complete
-7. ~~**Lightweight news ingestion + SentimentGraph**~~ ✅ Complete
-8. ~~**BriefGraph — all 8 sections with parallel fan-out**~~ ✅ Complete
-9. ~~**Brief API endpoint**~~ ✅ Complete (implemented as part of Step 8/10)
-10. ~~**ChatGraph + SSE streaming endpoint**~~ ✅ Complete
-11. ~~**React `ChatContainer` + streaming UI**~~ ✅ Complete
-12. ~~**Dashboard endpoint + React `WatchlistGrid`**~~ ✅ Complete
-13. ~~**`PeersChips` + competitor detection in chat**~~ ✅ Complete
-14. **CI/CD pipeline + staging deployment** ← **next**
+1. **Phase 2 Step 1 kickoff** — platform hardening baseline (IAM least-privilege, dependency lock reproducibility, deploy guardrails)
+2. **Phase 2 Step 2 kickoff** — wire `FinancialDataProvider` factory through ingestion entrypoints
+3. **Phase 2 Step 3 design** — full-depth news ingestion source strategy and quotas
+4. **Quality gates** — formalize CI coverage thresholds for Phase 2 critical paths
+5. **Operational readiness** — finalize Phase 2 issue/project tracking artifacts in `github/`
 
 ---
 
@@ -41,7 +32,7 @@ The platform reduces per-company research time from hours to minutes, delivers c
 |-------|-------|--------|-------|
 | Phase 0 — Planning & Alignment | PRD, technical specification, architectural direction | ✅ Complete | All planning documents authored; 14-step Phase 1 build order defined |
 | Phase 1 — MVP | Auth, watchlist, EDGAR ingestion, financial API, news, analyst briefs, chat, dashboard, infra | ✅ Complete | Steps 1–14 complete |
-| Phase 2 — Intelligence Expansion | Full news depth, sentiment enrichment, risk flag detection, document upload, competitor lookup | ⏳ Planned | — |
+| Phase 2 — Intelligence Expansion | Full news depth, sentiment enrichment, risk flag detection, document upload, comparative intelligence | 🔧 In Progress | 12-step build order defined; issue breakdown in `github/ISSUES` |
 | Phase 3 — SaaS Hardening | Tenant branding, alert notifications, admin panel, bulk import, brief export, usage tracking | ⏳ Planned | — |
 | Phase 4 — Scale & Polish | Earnings transcripts, watchlist sharing, scheduled briefs, comparison views, audit log, API access | ⏳ Planned | — |
 
@@ -70,9 +61,30 @@ Steps 1–4 can be parallelized; Steps 5–11 are sequential; Steps 12–13 can 
 
 ---
 
+## Phase 2 — Intelligence Expansion Task Tracking
+
+**Goal:** Expand AIphaWatch from MVP to analyst-grade intelligence depth with source diversity, stronger retrieval quality, and production reliability.
+
+- [ ] Step 1: Platform hardening baseline — IAM least-privilege cleanup, reproducible dependency locks, deployment guardrails
+- [ ] Step 2: Financial provider abstraction rollout — provider factory integration across ingestion and config-driven provider selection
+- [ ] Step 3: Full news ingestion depth — multi-source connectors, source-aware deduplication, and quota controls
+- [ ] Step 4: Sentiment enrichment v2 — entity/aspect tagging, confidence-scored outputs, and normalized trends
+- [ ] Step 5: Risk flag pipeline v2 — expanded taxonomy, deterministic severity calibration, and persistence updates
+- [ ] Step 6: Document upload ingestion — tenant-scoped upload API plus parse/chunk/embed/store graph path
+- [ ] Step 7: Hybrid retrieval policy — source blending between EDGAR and uploaded documents with weighting controls
+- [ ] Step 8: Comparative intelligence expansion — competitor benchmark cards and comparison-aware response routing
+- [ ] Step 9: Brief delta intelligence — cross-brief diffs with material-change attribution per section
+- [ ] Step 10: Alerting and delivery — rule-based triggers and outbound delivery (email/Slack)
+- [ ] Step 11: Evaluation harness and quality gates — golden datasets, scoring rubric, and CI regression checks
+- [ ] Step 12: Phase 2 release hardening — staging soak, rollback drills, and production cutover checklist
+
+Phase 2 sequencing: Steps 1–2 are preconditions, Steps 3–9 are core feature delivery, Steps 10–12 are quality/release hardening.
+
+---
+
 ## Step 10 Implementation Details — ChatGraph + SSE Streaming
 
-**Completed:** 2026-03-26
+**Completed:** 2026-03-21
 **Test Coverage:** 95 new tests (360 total)
 **Files Created:** 6 (`agents/nodes/chat.py`, `agents/graphs/chat.py`, `repositories/chat.py`, `schemas/chat.py`, `api/routers/chat.py`, `tests/test_chat.py`)
 **Files Modified:** 5 (`agents/state.py`, `agents/graphs/__init__.py`, `repositories/__init__.py`, `api/main.py`, `README.md`)
@@ -173,7 +185,7 @@ data: {"type": "error",     "message": "An unexpected error occurred. Please try
 
 ## Step 9 Implementation Details — Brief API Endpoints + Schemas
 
-**Completed:** 2026-03-26
+**Completed:** 2026-03-19
 **Test Coverage:** 13 new tests (265 total at time of step completion)
 **Files Created:** 2 (`schemas/brief.py`, `tests/test_briefs_api.py`)
 **Files Modified:** 2 (`api/routers/briefs.py`, `api/main.py`)
@@ -210,7 +222,7 @@ data: {"type": "error",     "message": "An unexpected error occurred. Please try
 
 ## Step 11 Implementation Details — React ChatContainer + Streaming UI
 
-**Completed:** 2026-03-27
+**Completed:** 2026-03-16
 **Test Coverage:** Backend remains 360 passing tests (frontend implementation is UI-layer integration for Step 11)
 **Files Created:** Frontend chat UI modules under `src/` (`components/chat/*`, `hooks/useSSE.ts`, `stores/chatStore.ts`, `lib/sse.ts`, `app/company/[id]/chat/page.tsx`)
 **Files Modified:** `src/components/chat/ChatContainer.tsx`, `src/components/chat/MessageList.tsx`, `src/components/chat/MessageBubble.tsx`, `src/hooks/useSSE.ts`, `src/stores/chatStore.ts`
@@ -275,7 +287,7 @@ ChatContainer.handleSend(message)
 
 ## Step 8 Implementation Details — BriefGraph
 
-**Completed:** 2026-03-26
+**Completed:** 2026-03-12
 **Test Coverage:** 71 new tests (249 total)
 **Files Created:** 5 (`agents/nodes/brief.py`, `agents/graphs/brief.py`, `repositories/briefs.py`, `repositories/chunks.py`, `tests/test_brief.py`)
 **Files Modified:** 4 (`agents/state.py`, `agents/graphs/__init__.py`, `repositories/__init__.py`, `README.md`)
@@ -349,7 +361,7 @@ ChatContainer.handleSend(message)
 
 ## Step 7 Implementation Details — News Ingestion + SentimentGraph
 
-**Completed:** 2026-03-26  
+**Completed:** 2026-03-08  
 **Test Coverage:** 34 new tests (178 total)  
 **Files Created:** 7 (services/news.py, services/bedrock.py, agents/nodes/sentiment.py, agents/graphs/sentiment.py, repositories/sentiment.py, tests/test_sentiment.py, docs/step7-summary.md)
 
@@ -445,7 +457,7 @@ BEDROCK_FOLLOWUP_MODEL_ID=anthropic.claude-3-haiku-20240307-v1:0
 
 ## References
 
-- `docs/PRD-AIphaWatch-2026-03-25.md` — Product requirements document
+- `docs/PRD-AIphaWatch-2026-03-03.md` — Product requirements document
 - `docs/AIphaWatch-TechnicalSpec.md` — Full technical specification
 - `docs/step7-summary.md` — Step 7 detailed implementation notes (SentimentGraph)
 - `developer/developer-journal.md` — Running log of all step completions (including Step 11 UI + PR fixes)

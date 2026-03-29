@@ -146,7 +146,7 @@ class BriefState(BaseState):
 | `retrieve_chunks` | Semantic search over `DocumentChunks` for top-20 relevant chunks | — |
 | `build_risk_flags` | Keyword scan + Bedrock Claude classification on retrieved chunks for covenant/litigation/guidance/insider signals | `risk_flags` |
 | `build_sentiment` | Aggregate `SentimentRecords`; compute weighted score + delta vs prior period | `sentiment` |
-| `build_exec_summary` | Bedrock Claude synthesis over sections 2–5 + retrieved chunks. Enforces citation-per-claim in prompt. | `executive_summary` |
+| `build_exec_summary` | Bedrock Claude synthesis over sections 2–5 + retrieved chunks. Enforces citation-per-claim in prompt, then performs structural post-generation validation of `source_chunk_ids` against retrieved chunk IDs. | `executive_summary` |
 | `build_sources` | Collect all cited document URLs + timestamps from sections | `sources` |
 | `build_followups` | Bedrock Claude generates 3 follow-up questions from brief content | `suggested_followups` |
 | `persist_brief` | Write `AnalystBrief` + `BriefSection` rows to Postgres in a single transaction | — |
@@ -155,6 +155,7 @@ class BriefState(BaseState):
 
 - `build_what_changed` is purely data-driven (snapshot diffs + filing date comparison). No LLM involved. This eliminates hallucination risk in the highest-signal section.
 - `build_exec_summary` runs last — it synthesizes all prior sections, not raw source data, ensuring it cannot claim something not already surfaced elsewhere in the brief.
+- Citation filtering in `build_exec_summary` is deterministic: the model must return JSON with `source_chunk_ids`; IDs are accepted only if present in the retrieved chunk allow-list (`chunk_id_list`). Unknown IDs are dropped from `cited_chunk_ids`. This is not a regex heuristic and does not use a second LLM pass.
 - **Fan-out pattern:** `build_snapshot`, `build_what_changed`, `build_risk_flags`, and `build_sentiment` run in parallel via LangGraph's `Send` API after `retrieve_chunks` completes.
 - Each section node writes independently to `state["sections"]`. `persist_brief` reads all sections and writes in a single transaction.
 

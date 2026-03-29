@@ -91,6 +91,7 @@ class Settings(BaseSettings):
     bedrock_followup_model_id: str = "anthropic.claude-3-haiku-20240307-v1:0"
 
     # Alpha Vantage
+    financial_data_provider: str = "alpha_vantage"
     alpha_vantage_api_key: str = ""
     alpha_vantage_base_url: str = "https://www.alphavantage.co/query"
     alpha_vantage_daily_limit: int = 25  # free-tier limit

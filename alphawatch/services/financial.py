@@ -6,16 +6,54 @@ to Polygon.io.
 """
 
 import logging
+from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal, InvalidOperation
-from typing import Any
+from typing import Any, TypedDict
 
 import httpx
 
 from alphawatch.config import get_settings
 
 logger = logging.getLogger(__name__)
+
+
+class FinancialSnapshotData(TypedDict):
+    """Normalized financial snapshot payload used by repositories.
+
+    This structure is provider-agnostic and is the contract returned by
+    ``FinancialDataProvider.fetch_snapshot``.
+    """
+
+    snapshot_date: date
+    price: Decimal | None
+    price_change_pct: Decimal | None
+    market_cap: int | None
+    pe_ratio: Decimal | None
+    debt_to_equity: Decimal | None
+    analyst_rating: str | None
+    raw_data: dict[str, Any]
+
+
+class FinancialDataProvider(ABC):
+    """Abstract provider interface for external financial data sources.
+
+    Implementations can wrap Alpha Vantage, Polygon, internal data warehouses,
+    or any other provider while returning the same normalized snapshot contract.
+    """
+
+    @abstractmethod
+    async def get_quote(self, ticker: str) -> "QuoteData":
+        """Fetch latest quote data for a ticker."""
+
+    @abstractmethod
+    async def get_overview(self, ticker: str) -> "OverviewData":
+        """Fetch company fundamentals for a ticker."""
+
+    @abstractmethod
+    async def fetch_snapshot(self, ticker: str) -> FinancialSnapshotData:
+        """Fetch and normalize quote + overview into snapshot shape."""
 
 
 @dataclass
@@ -92,7 +130,7 @@ def _safe_int(value: Any) -> int | None:
         return None
 
 
-class AlphaVantageClient:
+class AlphaVantageClient(FinancialDataProvider):
     """Async client for the Alpha Vantage financial data API.
 
     Args:
@@ -173,7 +211,7 @@ class AlphaVantageClient:
             raw=data,
         )
 
-    async def fetch_snapshot(self, ticker: str) -> dict[str, Any]:
+    async def fetch_snapshot(self, ticker: str) -> FinancialSnapshotData:
         """Fetch a complete financial snapshot combining quote + overview.
 
         Issues GLOBAL_QUOTE and OVERVIEW requests concurrently via
@@ -233,3 +271,26 @@ class AlphaVantageClient:
             raise ValueError(f"Alpha Vantage plan restriction: {data['Information']}")
 
         return data
+
+
+def get_financial_data_provider(
+    provider_name: str | None = None,
+) -> FinancialDataProvider:
+    """Return the configured financial data provider implementation.
+
+    Args:
+        provider_name: Optional explicit provider override.
+
+    Returns:
+        A ``FinancialDataProvider`` implementation.
+
+    Raises:
+        ValueError: If the provider is unsupported.
+    """
+    settings = get_settings()
+    provider = (provider_name or settings.financial_data_provider).lower()
+
+    if provider == "alpha_vantage":
+        return AlphaVantageClient()
+
+    raise ValueError(f"Unsupported financial data provider: {provider}")

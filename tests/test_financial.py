@@ -7,10 +7,12 @@ import pytest
 
 from alphawatch.services.financial import (
     AlphaVantageClient,
+    FinancialDataProvider,
     OverviewData,
     QuoteData,
     _safe_decimal,
     _safe_int,
+    get_financial_data_provider,
 )
 from alphawatch.schemas.financial import (
     FinancialSnapshotResponse,
@@ -197,6 +199,22 @@ class TestAlphaVantageClient:
         client = AlphaVantageClient(api_key="test-key")
         assert client._api_key == "test-key"
 
+    def test_implements_provider_abstraction(self):
+        client = AlphaVantageClient(api_key="test-key")
+        assert isinstance(client, FinancialDataProvider)
+
+
+class TestFinancialDataProviderFactory:
+    """Test provider factory selection and validation."""
+
+    def test_factory_returns_alpha_vantage_client(self):
+        provider = get_financial_data_provider("alpha_vantage")
+        assert isinstance(provider, AlphaVantageClient)
+
+    def test_factory_rejects_unknown_provider(self):
+        with pytest.raises(ValueError, match="Unsupported financial data provider"):
+            get_financial_data_provider("unknown_provider")
+
 
 # ---------------------------------------------------------------------------
 # Config
@@ -208,6 +226,7 @@ class TestFinancialConfig:
         from alphawatch.config import Settings
 
         s = Settings()
+        assert s.financial_data_provider == "alpha_vantage"
         assert s.alpha_vantage_base_url == "https://www.alphavantage.co/query"
         assert s.alpha_vantage_daily_limit == 25
         assert s.alpha_vantage_api_key == ""
