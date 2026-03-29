@@ -2,6 +2,12 @@ name: Release Production
 
 on:
   workflow_dispatch:
+    inputs:
+      plan_only:
+        description: "Run terraform plan only (skip apply and rollout checks)"
+        required: false
+        default: false
+        type: boolean
   push:
     tags:
       - "v*"
@@ -28,10 +34,12 @@ jobs:
           aws-region: ${{ vars.AWS_REGION }}
 
       - name: Login to Amazon ECR
+        if: github.event_name != 'workflow_dispatch' || !inputs.plan_only
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
       - name: Build and push API image
+        if: github.event_name != 'workflow_dispatch' || !inputs.plan_only
         env:
           REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           REPOSITORY: ${{ vars.ECR_API_REPOSITORY }}
@@ -41,6 +49,7 @@ jobs:
           docker push "$REGISTRY/$REPOSITORY:$IMAGE_TAG"
 
       - name: Build and push worker image
+        if: github.event_name != 'workflow_dispatch' || !inputs.plan_only
         env:
           REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           REPOSITORY: ${{ vars.ECR_WORKER_REPOSITORY }}
@@ -56,12 +65,40 @@ jobs:
           API_REPOSITORY: ${{ vars.ECR_API_REPOSITORY }}
           WORKER_REPOSITORY: ${{ vars.ECR_WORKER_REPOSITORY }}
           IMAGE_TAG: ${{ github.sha }}
+          CLUSTER_NAME: alphawatch-production
+          API_SERVICE_NAME: alphawatch-production-api
+          WORKER_SERVICE_NAME: alphawatch-production-worker
         run: |
-          echo "api_image_uri=$REGISTRY/$API_REPOSITORY:$IMAGE_TAG" >> "$GITHUB_OUTPUT"
-          echo "worker_image_uri=$REGISTRY/$WORKER_REPOSITORY:$IMAGE_TAG" >> "$GITHUB_OUTPUT"
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" && "${{ inputs.plan_only }}" == "true" ]]; then
+            API_TASK_DEF=$(aws ecs describe-services \
+              --cluster "$CLUSTER_NAME" \
+              --services "$API_SERVICE_NAME" \
+              --query 'services[0].taskDefinition' \
+              --output text)
+            WORKER_TASK_DEF=$(aws ecs describe-services \
+              --cluster "$CLUSTER_NAME" \
+              --services "$WORKER_SERVICE_NAME" \
+              --query 'services[0].taskDefinition' \
+              --output text)
+
+            API_IMAGE_URI=$(aws ecs describe-task-definition \
+              --task-definition "$API_TASK_DEF" \
+              --query 'taskDefinition.containerDefinitions[?name==`api`].image | [0]' \
+              --output text)
+            WORKER_IMAGE_URI=$(aws ecs describe-task-definition \
+              --task-definition "$WORKER_TASK_DEF" \
+              --query 'taskDefinition.containerDefinitions[?name==`worker`].image | [0]' \
+              --output text)
+
+            echo "api_image_uri=$API_IMAGE_URI" >> "$GITHUB_OUTPUT"
+            echo "worker_image_uri=$WORKER_IMAGE_URI" >> "$GITHUB_OUTPUT"
+          else
+            echo "api_image_uri=$REGISTRY/$API_REPOSITORY:$IMAGE_TAG" >> "$GITHUB_OUTPUT"
+            echo "worker_image_uri=$REGISTRY/$WORKER_REPOSITORY:$IMAGE_TAG" >> "$GITHUB_OUTPUT"
+          fi
 
   deploy:
-    name: Terraform apply + ECS rollout + smoke test
+    name: Terraform deploy or plan-only validation
     runs-on: ubuntu-latest
     needs: build
     environment: production
@@ -94,11 +131,17 @@ jobs:
             -var "worker_image=${{ needs.build.outputs.worker_image_uri }}" \
             -out=tfplan
 
+      - name: Plan-only summary
+        if: github.event_name == 'workflow_dispatch' && inputs.plan_only
+        run: echo "Plan-only mode enabled; skipping apply, rollout waits, and smoke checks."
+
       - name: Terraform apply
+        if: github.event_name != 'workflow_dispatch' || !inputs.plan_only
         working-directory: infra/environments/production
         run: terraform apply -input=false -auto-approve tfplan
 
       - name: Capture Terraform outputs
+        if: github.event_name != 'workflow_dispatch' || !inputs.plan_only
         id: tf
         working-directory: infra/environments/production
         run: |
@@ -110,19 +153,21 @@ jobs:
           echo "cloudfront_distribution_id=$(terraform output -raw cloudfront_distribution_id)" >> "$GITHUB_OUTPUT"
 
       - name: Wait for ECS API service stability
+        if: github.event_name != 'workflow_dispatch' || !inputs.plan_only
         run: |
           aws ecs wait services-stable \
             --cluster "${{ steps.tf.outputs.cluster_name }}" \
             --services "${{ steps.tf.outputs.api_service_name }}"
 
       - name: Wait for ECS worker service stability
+        if: github.event_name != 'workflow_dispatch' || !inputs.plan_only
         run: |
           aws ecs wait services-stable \
             --cluster "${{ steps.tf.outputs.cluster_name }}" \
             --services "${{ steps.tf.outputs.worker_service_name }}"
 
       - name: Deploy frontend static assets (optional)
-        if: vars.DEPLOY_FRONTEND_STATIC == 'true'
+        if: (github.event_name != 'workflow_dispatch' || !inputs.plan_only) && vars.DEPLOY_FRONTEND_STATIC == 'true'
         run: |
           npm ci
           npm run build
@@ -130,17 +175,19 @@ jobs:
           aws s3 sync out/ "s3://${{ steps.tf.outputs.frontend_bucket_id }}/" --delete
 
       - name: Invalidate CloudFront cache (optional)
-        if: vars.DEPLOY_FRONTEND_STATIC == 'true'
+        if: (github.event_name != 'workflow_dispatch' || !inputs.plan_only) && vars.DEPLOY_FRONTEND_STATIC == 'true'
         run: |
           aws cloudfront create-invalidation \
             --distribution-id "${{ steps.tf.outputs.cloudfront_distribution_id }}" \
             --paths "/*"
 
       - name: Smoke test health endpoint
+        if: github.event_name != 'workflow_dispatch' || !inputs.plan_only
         run: |
           curl --fail --show-error --silent "http://${{ steps.tf.outputs.alb_dns_name }}/health"
 
       - name: Smoke test authenticated path enforcement
+        if: github.event_name != 'workflow_dispatch' || !inputs.plan_only
         run: |
           STATUS=$(curl --silent --output /dev/null --write-out "%{http_code}" \
             "http://${{ steps.tf.outputs.alb_dns_name }}/api/watchlist")

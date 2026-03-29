@@ -27,8 +27,19 @@ jobs:
       - name: Sync dependencies
         run: uv sync --frozen --all-groups
 
-      - name: Run backend tests
-        run: uv run pytest tests/
+      - name: Verify backend lockfile exists
+        run: test -f uv.lock
+
+      - name: Run backend tests with coverage gate
+        run: |
+          uv run pytest tests/ \
+            --cov=alphawatch \
+            --cov-report=term-missing \
+            --cov-report=json:coverage.json \
+            --cov-fail-under=74
+
+      - name: Enforce critical-path coverage thresholds
+        run: uv run python scripts/ci/coverage_gate.py coverage.json
 
       - name: Run mypy
         run: uv run mypy alphawatch/ || echo '::warning::mypy found type errors (non-blocking for Phase 1)'
@@ -51,6 +62,9 @@ jobs:
 
       - name: Install frontend deps
         run: npm ci
+
+      - name: Verify frontend lockfile exists
+        run: test -f package-lock.json
 
       - name: Frontend tests
         run: npm test -- --passWithNoTests

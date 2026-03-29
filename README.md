@@ -389,8 +389,12 @@ npx tsc --noEmit
 - [`docs/project-status.md`](docs/project-status.md) — Detailed phase and step tracking
 - [`AGENTS.md`](AGENTS.md) — AI agent guidance, graph shapes, and architecture reference
 - [`developer/developer-journal.md`](developer/developer-journal.md) — Development log
-- [`github/ISSUES/phase-2-intelligence.md`](github/ISSUES/phase-2-intelligence.md) — Phase 2 epic + issue breakdown
-- [`github/PROJECTS/phase-2-intelligence.md`](github/PROJECTS/phase-2-intelligence.md) — Phase 2 project board template
+- [`docs/phase2-step1-hardening.md`](docs/phase2-step1-hardening.md) — Step 1 execution checklist (IAM, CI gates, deploy guardrails, migration drill)
+- [`docs/phase2-step2-runtime-foundations-spec.md`](docs/phase2-step2-runtime-foundations-spec.md) — Step 2 architecture and execution spec
+- [`docs/phase2-step3-news-ingestion-spec.md`](docs/phase2-step3-news-ingestion-spec.md) — Step 3 multi-source ingestion spec
+- [`docs/phase2-operations-runbook-news-sources.md`](docs/phase2-operations-runbook-news-sources.md) — News source operations runbook
+- [Phase 2 Epic (GitHub issue)](https://github.com/Bytes0211/aIphawatch/issues/26) — Phase 2 epic and issue breakdown
+- [Phase 2 Project (GitHub)](https://github.com/users/Bytes0211/projects/2) — Phase 2 project board
 
 ---
 

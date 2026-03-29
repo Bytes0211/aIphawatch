@@ -18,11 +18,11 @@ The platform reduces per-company research time from hours to minutes, delivers c
 
 ## Current Focus
 
-1. **Phase 2 Step 1 kickoff** — platform hardening baseline (IAM least-privilege, dependency lock reproducibility, deploy guardrails)
-2. **Phase 2 Step 2 kickoff** — wire `FinancialDataProvider` factory through ingestion entrypoints
-3. **Phase 2 Step 3 design** — full-depth news ingestion source strategy and quotas
-4. **Quality gates** — formalize CI coverage thresholds for Phase 2 critical paths
-5. **Operational readiness** — finalize Phase 2 issue/project tracking artifacts in `github/`
+1. **Phase 2 Step 1 implementation (in repo) complete** — CI coverage gates, production plan-only guardrail, and Step 1 runbook added
+2. **Phase 2 Step 1 external execution pending** — IAM least-privilege validation run, staging full deploy, production plan-only run, migration drill evidence
+3. **Phase 2 Step 2 kickoff** — wire `FinancialDataProvider` factory through ingestion entrypoints
+4. **Phase 2 Step 3 design** — full-depth news ingestion source strategy and quotas
+5. **Operational readiness** — finalize issue-level checklists and execution evidence
 
 ---
 
@@ -32,7 +32,7 @@ The platform reduces per-company research time from hours to minutes, delivers c
 |-------|-------|--------|-------|
 | Phase 0 — Planning & Alignment | PRD, technical specification, architectural direction | ✅ Complete | All planning documents authored; 14-step Phase 1 build order defined |
 | Phase 1 — MVP | Auth, watchlist, EDGAR ingestion, financial API, news, analyst briefs, chat, dashboard, infra | ✅ Complete | Steps 1–14 complete |
-| Phase 2 — Intelligence Expansion | Full news depth, sentiment enrichment, risk flag detection, document upload, comparative intelligence | 🔧 In Progress | 12-step build order defined; issue breakdown in `github/ISSUES` |
+| Phase 2 — Intelligence Expansion | Full news depth, sentiment enrichment, risk flag detection, document upload, comparative intelligence | 🔧 In Progress | 12-step build order defined; tracked in GitHub issues (#26-#40) |
 | Phase 3 — SaaS Hardening | Tenant branding, alert notifications, admin panel, bulk import, brief export, usage tracking | ⏳ Planned | — |
 | Phase 4 — Scale & Polish | Earnings transcripts, watchlist sharing, scheduled briefs, comparison views, audit log, API access | ⏳ Planned | — |
 
@@ -79,6 +79,13 @@ Steps 1–4 can be parallelized; Steps 5–11 are sequential; Steps 12–13 can 
 - [ ] Step 12: Phase 2 release hardening — staging soak, rollback drills, and production cutover checklist
 
 Phase 2 sequencing: Steps 1–2 are preconditions, Steps 3–9 are core feature delivery, Steps 10–12 are quality/release hardening.
+
+### Phase 2 Execution Docs
+
+- [docs/phase2-step1-hardening.md](docs/phase2-step1-hardening.md) — Step 1 platform hardening runbook
+- [docs/phase2-step2-runtime-foundations-spec.md](docs/phase2-step2-runtime-foundations-spec.md) — Step 2 runtime foundations implementation spec
+- [docs/phase2-step3-news-ingestion-spec.md](docs/phase2-step3-news-ingestion-spec.md) — Step 3 full news ingestion implementation spec
+- [docs/phase2-operations-runbook-news-sources.md](docs/phase2-operations-runbook-news-sources.md) — News source operations runbook
 
 ---
 
