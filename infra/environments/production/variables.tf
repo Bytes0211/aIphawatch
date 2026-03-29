@@ -45,8 +45,9 @@ variable "worker_image" {
 }
 
 variable "acm_certificate_arn" {
-  description = "ARN of ACM certificate for HTTPS."
+  description = "ARN of ACM certificate for HTTPS. Leave empty for HTTP-only deployment."
   type        = string
+  default     = ""
 }
 
 variable "domain_aliases" {
