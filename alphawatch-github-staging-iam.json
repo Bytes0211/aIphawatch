@@ -17,7 +17,8 @@
         "iam:PutRolePolicy",
         "iam:DeleteRolePolicy",
         "iam:ListRolePolicies",
-        "iam:ListAttachedRolePolicies"
+        "iam:ListAttachedRolePolicies",
+        "iam:ListInstanceProfilesForRole"
       ],
       "Resource": "arn:aws:iam::*:role/alphawatch-*"
     },

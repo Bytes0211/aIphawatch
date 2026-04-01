@@ -229,22 +229,6 @@ resource "aws_security_group" "rds" {
   description = "RDS - inbound from ECS"
   vpc_id      = aws_vpc.main.id
 
-  ingress {
-    description     = "PostgreSQL from API"
-    from_port       = 5432
-    to_port         = 5432
-    protocol        = "tcp"
-    security_groups = [aws_security_group.ecs_api.id]
-  }
-
-  ingress {
-    description     = "PostgreSQL from Worker"
-    from_port       = 5432
-    to_port         = 5432
-    protocol        = "tcp"
-    security_groups = [aws_security_group.ecs_worker.id]
-  }
-
   egress {
     from_port   = 0
     to_port     = 0
@@ -259,6 +243,26 @@ resource "aws_security_group" "rds" {
   lifecycle {
     create_before_destroy = true
   }
+}
+
+resource "aws_security_group_rule" "rds_from_api" {
+  type                     = "ingress"
+  from_port                = 5432
+  to_port                  = 5432
+  protocol                 = "tcp"
+  security_group_id        = aws_security_group.rds.id
+  source_security_group_id = aws_security_group.ecs_api.id
+  description              = "PostgreSQL from API"
+}
+
+resource "aws_security_group_rule" "rds_from_worker" {
+  type                     = "ingress"
+  from_port                = 5432
+  to_port                  = 5432
+  protocol                 = "tcp"
+  security_group_id        = aws_security_group.rds.id
+  source_security_group_id = aws_security_group.ecs_worker.id
+  description              = "PostgreSQL from Worker"
 }
 
 # Redis — accepts connections from ECS tasks
