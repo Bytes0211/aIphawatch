@@ -53,6 +53,68 @@ AIphaWatch is a multi-tenant SaaS platform that ingests SEC EDGAR filings, finan
 
 LangGraph owns all stateful, multi-step workflows. Celery owns the clock. They meet at a well-defined boundary: Celery enqueues a task with an input payload; LangGraph executes the graph and writes results to Postgres.
 
+### System Architecture Diagram
+
+Source file: [docs/api-bedrock-pgvector-redis-ecs.mmd](docs/api-bedrock-pgvector-redis-ecs.mmd)
+
+How to read this diagram: follow solid arrows for primary request/task flow, dashed arrows for returned context or asynchronous feedback, and use the "What it shows" notes as quick summaries of each core subsystem's role.
+
+```mermaid
+flowchart LR
+    classDef api fill:#0b3954,color:#ffffff,stroke:#082a3f,stroke-width:1px
+    classDef compute fill:#bfd7ea,color:#102a43,stroke:#5c7c8a,stroke-width:1px
+    classDef data fill:#c7f9cc,color:#1b4332,stroke:#52b788,stroke-width:1px
+    classDef ai fill:#ffe8a3,color:#5f3b00,stroke:#d4a017,stroke-width:1px
+    classDef edge fill:#f8f9fa,color:#343a40,stroke:#adb5bd,stroke-width:1px
+    classDef note fill:#fff3bf,color:#5f3b00,stroke:#e9c46a,stroke-width:1px
+
+    Analyst["Analyst / Frontend"]:::edge
+    ALB["ALB / HTTPS Entry"]:::edge
+
+    subgraph ECSCluster["AWS ECS Cluster"]
+        API["FastAPI Service\nREST + SSE endpoints"]:::api
+        Worker["Celery Worker Service\nasync ingestion + generation jobs"]:::compute
+    end
+
+    subgraph DataPlane["State + Retrieval"]
+        PG[("PostgreSQL + pgvector\napp data + vector search")]:::data
+        Redis[("Redis\nbroker + cache + transient state")]:::data
+    end
+
+    subgraph AIPlane["Model Runtime"]
+        Bedrock["AWS Bedrock\nClaude + Titan Embeddings"]:::ai
+    end
+
+    subgraph Notes["What it shows"]
+        N1["What it shows: The API service in ECS is the central integration point for user traffic and system orchestration."]:::note
+        N2["What it shows: Redis brokers async work to Celery and also supports cache/state coordination for low-latency API paths."]:::note
+        N3["What it shows: PostgreSQL + pgvector stores operational data and powers vector retrieval returned to API and chat flows."]:::note
+        N4["What it shows: Bedrock handles both embeddings and LLM generation for chat, briefs, and sentiment tasks."]:::note
+    end
+
+    Analyst -->|"UI calls /api/*"| ALB
+    ALB -->|"HTTP / SSE"| API
+
+    API -->|"CRUD, briefs, chat sessions"| PG
+    API -->|"chunk similarity search"| PG
+    API -->|"session cache, broker coordination"| Redis
+    API -->|"chat, brief, sentiment, embeddings"| Bedrock
+    API -->|"enqueue background work"| Redis
+
+    Redis -->|"task queue"| Worker
+    Worker -->|"ingestion writes, brief storage, vectors"| PG
+    Worker -->|"embeddings, scoring, summarization"| Bedrock
+
+    PG -.->|"retrieved chunks + company state"| API
+    Redis -.->|"cache hits / async signals"| API
+    Worker -.->|"briefs and chat context become queryable"| API
+
+    N1 -.-> API
+    N2 -.-> Redis
+    N3 -.-> PG
+    N4 -.-> Bedrock
+```
+
 ### BriefGraph — fan-out / fan-in
 
 Five section builders run **in parallel** via LangGraph `Send` after chunk retrieval. The executive summary runs last, after fan-in, so it can only synthesise information that was surfaced in the parallel sections.

@@ -1,0 +1,81 @@
+name: Run Staging Migration Drill
+
+on:
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  migration-drill:
+    name: Start and monitor CodeBuild drill
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN_STAGING }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Verify CodeBuild project exists
+        env:
+          PROJECT_NAME: alphawatch-staging-migration-drill
+        run: |
+          COUNT=$(aws codebuild batch-get-projects \
+            --names "$PROJECT_NAME" \
+            --query 'length(projects)' \
+            --output text)
+
+          if [[ "$COUNT" != "1" ]]; then
+            echo "CodeBuild project $PROJECT_NAME was not found."
+            echo "Set migration_drill_github_connection_arn in staging Terraform variables, apply infra, and retry."
+            exit 1
+          fi
+
+      - name: Start migration drill build
+        id: start
+        env:
+          PROJECT_NAME: alphawatch-staging-migration-drill
+        run: |
+          BUILD_ID=$(aws codebuild start-build \
+            --project-name "$PROJECT_NAME" \
+            --query 'build.id' \
+            --output text)
+          echo "build_id=$BUILD_ID" >> "$GITHUB_OUTPUT"
+
+      - name: Wait for build completion
+        env:
+          BUILD_ID: ${{ steps.start.outputs.build_id }}
+          AWS_REGION: ${{ vars.AWS_REGION }}
+        run: |
+          while true; do
+            STATUS=$(aws codebuild batch-get-builds \
+              --ids "$BUILD_ID" \
+              --query 'builds[0].buildStatus' \
+              --output text)
+            LOG_GROUP=$(aws codebuild batch-get-builds \
+              --ids "$BUILD_ID" \
+              --query 'builds[0].logs.groupName' \
+              --output text)
+            LOG_STREAM=$(aws codebuild batch-get-builds \
+              --ids "$BUILD_ID" \
+              --query 'builds[0].logs.streamName' \
+              --output text)
+
+            echo "Build status: $STATUS"
+            echo "CloudWatch logs: $LOG_GROUP / $LOG_STREAM"
+
+            case "$STATUS" in
+              SUCCEEDED)
+                exit 0
+                ;;
+              FAILED|FAULT|STOPPED|TIMED_OUT)
+                exit 1
+                ;;
+              *)
+                sleep 15
+                ;;
+            esac
+          done

@@ -51,3 +51,21 @@ variable "acm_certificate_arn" {
   type        = string
   default     = ""
 }
+
+variable "migration_drill_github_connection_arn" {
+  description = "CodeConnections ARN used by the staging migration drill CodeBuild project."
+  type        = string
+  default     = ""
+}
+
+variable "migration_drill_repository_url" {
+  description = "Repository URL CodeBuild should clone for the migration drill."
+  type        = string
+  default     = "https://github.com/Bytes0211/aIphawatch.git"
+}
+
+variable "migration_drill_source_version" {
+  description = "Git ref used by the migration drill CodeBuild project."
+  type        = string
+  default     = "main"
+}

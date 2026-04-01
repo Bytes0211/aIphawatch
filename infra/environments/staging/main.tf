@@ -170,10 +170,10 @@ module "ecs" {
   db_password_secret_arn = module.secrets.db_password_secret_arn
 
   # Redis connection
-  redis_broker_host = module.elasticache_broker.primary_endpoint
-  redis_broker_port = module.elasticache_broker.port
-  redis_cache_host  = module.elasticache_cache.primary_endpoint
-  redis_cache_port  = module.elasticache_cache.port
+  redis_broker_host         = module.elasticache_broker.primary_endpoint
+  redis_broker_port         = module.elasticache_broker.port
+  redis_cache_host          = module.elasticache_cache.primary_endpoint
+  redis_cache_port          = module.elasticache_cache.port
   redis_password_secret_arn = module.secrets.redis_auth_token_secret_arn
 
   # Auth
@@ -189,6 +189,33 @@ module "ecs" {
   container_insights = false
   log_retention_days = 14
   tags               = local.tags
+}
+
+# -----------------------------------------------------------------------------
+# Migration Drill Runner (CodeBuild inside the staging VPC)
+# -----------------------------------------------------------------------------
+module "migration_drill_codebuild" {
+  count = var.migration_drill_github_connection_arn != "" ? 1 : 0
+
+  source = "../../modules/codebuild"
+
+  project                = var.project
+  environment            = var.environment
+  aws_region             = var.aws_region
+  vpc_id                 = module.vpc.vpc_id
+  private_subnet_ids     = module.vpc.private_subnet_ids
+  rds_security_group_id  = module.vpc.rds_security_group_id
+  repository_url         = var.migration_drill_repository_url
+  github_connection_arn  = var.migration_drill_github_connection_arn
+  source_version         = var.migration_drill_source_version
+  buildspec_path         = "buildspecs/migration-safety-drill.yml"
+  db_host                = module.rds.address
+  db_port                = module.rds.port
+  db_name                = module.rds.db_name
+  db_user                = "alphawatch"
+  db_password_secret_arn = module.secrets.db_password_secret_arn
+  log_retention_days     = 14
+  tags                   = local.tags
 }
 
 # -----------------------------------------------------------------------------
@@ -244,4 +271,12 @@ output "cognito_user_pool_id" {
 
 output "cognito_client_id" {
   value = module.cognito.client_id
+}
+
+output "migration_drill_codebuild_project_name" {
+  value = try(module.migration_drill_codebuild[0].project_name, null)
+}
+
+output "migration_drill_codebuild_log_group_name" {
+  value = try(module.migration_drill_codebuild[0].log_group_name, null)
 }

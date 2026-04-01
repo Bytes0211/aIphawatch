@@ -1,9 +1,9 @@
 # AIphaWatch — Project Status
 
 **Version:** 1.0  
-**Last Updated:** 2026-03-28  
-**Lifecycle:** Phase 1 (MVP) complete; Phase 2 execution kickoff in progress  
-**Overall Status:** ✅ Phase 0 complete; ✅ Phase 1 MVP complete (Steps 1–14 of 14 complete); 🔧 Phase 2 step planning and issue breakdown complete
+**Last Updated:** 2026-03-29  
+**Lifecycle:** Phase 1 (MVP) complete; Phase 2 execution underway  
+**Overall Status:** ✅ Phase 0 complete; ✅ Phase 1 MVP complete (Steps 1–14 of 14 complete); 🔧 Phase 2 Step 1 closeout in progress (5/7 deliverables complete); ⛔ blocked on observability alert provisioning/verification + migration drill runtime access
 **Deliverables Completed:** Product requirements document; full technical specification; LangGraph workflow designs (IngestionGraph, BriefGraph, ChatGraph, SentimentGraph); PostgreSQL schema with pgvector and RLS; FastAPI API contracts; React component tree; Celery job definitions; Terraform module layout; CI/CD pipeline spec; **Terraform infrastructure — 8 modules + staging/production environments**; **Database schema — 12 ORM models + Alembic migration + HNSW index + RLS policies**; **FastAPI skeleton — auth middleware, tenant context, health endpoint**; **Company resolution + Watchlist CRUD — repositories, schemas, routers**; **EDGAR ingestion — IngestionGraph + EDGAR client + chunker + embeddings service**; **Financial API — Alpha Vantage client + snapshot repository + upsert**; **News ingestion — NewsAPI client + BedrockClient + SentimentGraph + sentiment repository**; **BriefGraph — 8-section analyst brief with parallel fan-out, pgvector RAG retrieval, BriefRepository, ChunkRepository**; **ChatGraph — multi-turn RAG chat with SSE streaming, chunk cache, rolling context summary, ChatRepository**; **Step 11 React chat UI — ChatContainer + streaming message rendering + citation/follow-up components + Zustand store + SSE hook**; **Dashboard — change_score-sorted watchlist digest + React WatchlistGrid**; **PeersChips + competitor detection — competitor_lookup node, PeersChips React component**; **Step 14 CI/CD — GitHub Actions CI, reusable artifact build, staging deploy workflow, production release workflow, ECS rollout + smoke checks**; **Test suite — 401 backend tests passing**
 
 ---
@@ -18,11 +18,11 @@ The platform reduces per-company research time from hours to minutes, delivers c
 
 ## Current Focus
 
-1. **Phase 2 Step 1 implementation (in repo) complete** — CI coverage gates, production plan-only guardrail, and Step 1 runbook added
-2. **Phase 2 Step 1 external execution pending** — IAM least-privilege validation run, staging full deploy, production plan-only run, migration drill evidence
-3. **Phase 2 Step 2 kickoff** — wire `FinancialDataProvider` factory through ingestion entrypoints
-4. **Phase 2 Step 3 design** — full-depth news ingestion source strategy and quotas
-5. **Operational readiness** — finalize issue-level checklists and execution evidence
+1. **Phase 2 Step 1 execution status tracked in runbook** — see `docs/phase2-step1-hardening.md` for the formal completion record and evidence templates
+2. **Phase 2 Step 1 completed items (5/7)** — IAM least privilege, reproducible lock checks, CI quality gates, deploy guardrails validation, and docs/runbook freeze
+3. **Phase 2 Step 1 remaining blockers (2/7)** — required production observability alarms not yet verified as provisioned; migration drill cannot run from current host due staging RDS network reachability (private endpoint) and no local Docker fallback
+4. **Phase 2 Step 2 kickoff** — wire `FinancialDataProvider` factory through ingestion entrypoints
+5. **Phase 2 Step 3 design** — full-depth news ingestion source strategy and quotas
 
 ---
 
@@ -65,7 +65,7 @@ Steps 1–4 can be parallelized; Steps 5–11 are sequential; Steps 12–13 can 
 
 **Goal:** Expand AIphaWatch from MVP to analyst-grade intelligence depth with source diversity, stronger retrieval quality, and production reliability.
 
-- [ ] Step 1: Platform hardening baseline — IAM least-privilege cleanup, reproducible dependency locks, deployment guardrails
+- [ ] Step 1: Platform hardening baseline — 5/7 complete (blocked: observability alert coverage + migration drill execution environment)
 - [ ] Step 2: Runtime foundations rollout — provider factory integration, config-driven selection, and chat summarization off the hot path
 - [ ] Step 3: Full news ingestion depth — multi-source connectors, source-aware deduplication, and quota controls
 - [ ] Step 4: Sentiment enrichment v2 — entity/aspect tagging, confidence-scored outputs, and normalized trends

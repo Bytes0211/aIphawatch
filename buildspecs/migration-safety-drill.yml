@@ -1,0 +1,20 @@
+version: 0.2
+
+phases:
+  install:
+    runtime-versions:
+      python: 3.12
+    commands:
+      - apt-get update
+      - apt-get install -y postgresql-client
+      - curl -LsSf https://astral.sh/uv/install.sh | sh
+      - export PATH="$HOME/.local/bin:$PATH"
+  pre_build:
+    commands:
+      - export PATH="$HOME/.local/bin:$PATH"
+      - uv sync --frozen --all-groups
+      - chmod +x scripts/ops/migration_safety_drill.sh
+  build:
+    commands:
+      - export PATH="$HOME/.local/bin:$PATH"
+      - scripts/ops/migration_safety_drill.sh --db-host "$DB_HOST" --db-port "$DB_PORT" --db-name "$DB_NAME" --db-user "$DB_USER" --db-password-secret "$DB_PASSWORD_SECRET_ARN" --aws-region "$AWS_REGION"
