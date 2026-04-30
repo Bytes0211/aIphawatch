@@ -214,6 +214,7 @@ module "migration_drill_codebuild" {
   db_name                = module.rds.db_name
   db_user                = "alphawatch"
   db_password_secret_arn = module.secrets.db_password_secret_arn
+  source_s3_bucket_arn   = module.s3.documents_bucket_arn
   log_retention_days     = 14
   tags                   = local.tags
 }

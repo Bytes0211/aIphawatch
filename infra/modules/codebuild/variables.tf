@@ -104,6 +104,12 @@ variable "log_retention_days" {
   default     = 14
 }
 
+variable "source_s3_bucket_arn" {
+  description = "ARN of the S3 bucket allowed as a CodeBuild source (for S3 source override fallback). Empty string disables."
+  type        = string
+  default     = ""
+}
+
 variable "tags" {
   description = "Common tags applied to all resources."
   type        = map(string)

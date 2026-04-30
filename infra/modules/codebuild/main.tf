@@ -64,43 +64,63 @@ resource "aws_iam_role_policy" "codebuild" {
 
   policy = jsonencode({
     Version = "2012-10-17"
-    Statement = [
-      {
-        Effect = "Allow"
-        Action = [
-          "logs:CreateLogGroup",
-          "logs:CreateLogStream",
-          "logs:PutLogEvents"
-        ]
-        Resource = [
-          aws_cloudwatch_log_group.migration_drill.arn,
-          "${aws_cloudwatch_log_group.migration_drill.arn}:*"
-        ]
-      },
-      {
-        Effect = "Allow"
-        Action = [
-          "ec2:CreateNetworkInterface",
-          "ec2:CreateNetworkInterfacePermission",
-          "ec2:DeleteNetworkInterface",
-          "ec2:DescribeDhcpOptions",
-          "ec2:DescribeNetworkInterfaces",
-          "ec2:DescribeSecurityGroups",
-          "ec2:DescribeSubnets",
-          "ec2:DescribeVpcs"
-        ]
-        Resource = "*"
-      },
-      {
-        Effect = "Allow"
-        Action = [
-          "secretsmanager:GetSecretValue"
-        ]
-        Resource = [
-          var.db_password_secret_arn
-        ]
-      }
-    ]
+    Statement = concat(
+      [
+        {
+          Effect = "Allow"
+          Action = [
+            "logs:CreateLogGroup",
+            "logs:CreateLogStream",
+            "logs:PutLogEvents"
+          ]
+          Resource = [
+            aws_cloudwatch_log_group.migration_drill.arn,
+            "${aws_cloudwatch_log_group.migration_drill.arn}:*"
+          ]
+        },
+        {
+          Effect = "Allow"
+          Action = [
+            "ec2:CreateNetworkInterface",
+            "ec2:CreateNetworkInterfacePermission",
+            "ec2:DeleteNetworkInterface",
+            "ec2:DescribeDhcpOptions",
+            "ec2:DescribeNetworkInterfaces",
+            "ec2:DescribeSecurityGroups",
+            "ec2:DescribeSubnets",
+            "ec2:DescribeVpcs"
+          ]
+          Resource = "*"
+        },
+        {
+          Effect = "Allow"
+          Action = [
+            "secretsmanager:GetSecretValue"
+          ]
+          Resource = [
+            var.db_password_secret_arn
+          ]
+        },
+        {
+          Effect = "Allow"
+          Action = [
+            "codeconnections:UseConnection",
+            "codestar-connections:UseConnection"
+          ]
+          Resource = var.github_connection_arn
+        }
+      ],
+      var.source_s3_bucket_arn != "" ? [
+        {
+          Effect = "Allow"
+          Action = [
+            "s3:GetObject",
+            "s3:GetObjectVersion"
+          ]
+          Resource = "${var.source_s3_bucket_arn}/*"
+        }
+      ] : []
+    )
   })
 }
 
